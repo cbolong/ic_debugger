@@ -283,3 +283,19 @@ def test_spec_detail_no_path():
     spec = parse_spec_text("# CPU: T\n## R\n- Offset: 0x0\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
     detail = spec_detail(spec)
     assert detail["raw"] is None and detail["raw_error"]
+
+
+def test_spec_detail_with_bin_overlays_values():
+    """Spec 全文疊值：傳入 binf 時，值與 differs 必須與暫存器頁（build_payload）
+    完全一致 —— 兩頁共用同一解碼來源，不允許各算各的（設計如此）。"""
+    spec = load_spec_file(ROOT / "specs" / "arm_cortex_r5.md")
+    from core.bin_parser import load_bin
+    binf = load_bin(ROOT / "examples" / "sample_r5.bin")
+    detail = spec_detail(spec, binf)
+    payload = build_payload(spec, binf)
+    got = [(r["name"], r["value_hex"], r["differs"]) for r in detail["registers"]]
+    want = [(r["name"], r["value_hex"], r["differs"]) for r in payload["registers"]]
+    assert got == want
+    assert any(v is not None for _, v, _ in got)  # 確實有值
+    # 原文照舊、不受 bin 影響
+    assert detail["raw"] == (ROOT / "specs" / "arm_cortex_r5.md").read_text(encoding="utf-8-sig")

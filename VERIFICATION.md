@@ -58,13 +58,16 @@
 | hexdump：逐 word 對應（32/64/空洞）、LE 組值、檔尾不足一 word | ::test_hexdump_annotation_with_gap_and_64bit、_hexdump_value_matches_le_word、test_analyzer.py::test_hexdump_annotation | 混合佈局逐 word 斷言 |
 | 範例 bin × 範例 spec 端到端 | test_analyzer.py::test_sample_bin_against_r5_spec | SCTLR/DFSR 等關鍵解碼逐項 |
 
-## 5. Spec 全文檢視（稽核用）
+## 5. Spec 全文檢視（稽核＋連續對照）
 
 | 行為 | 驗證 | 窮舉範圍 |
 |---|---|---|
 | 原始 MD 一字不差回傳（**設計如此**：稽核要能對 TRM 原文） | test_exhaustive_analyzer.py::test_spec_detail_builtin_raw_matches_file | 內建 R5 全文比對 |
 | 檔案消失／無路徑時降級（解析內容仍可看） | ::test_spec_detail_missing_file_degrades、_no_path | 兩種失效路徑 |
-| 全文模式無值（純 spec，不混入 bin 資料） | ::test_spec_detail_builtin_raw_matches_file | 全暫存器斷言 |
+| 未載入 bin（或看非目前 spec）＝純 spec、無值 | ::test_spec_detail_builtin_raw_matches_file | 全暫存器斷言 |
+| 已載入 bin 時同頁疊上目前值，且值/differs 與暫存器頁**完全一致**（**設計如此**：兩頁共用 build_payload 單一解碼來源，不允許各算各的） | ::test_spec_detail_with_bin_overlays_values | 範例 bin 全暫存器逐一比對 |
+| **只有「目前使用中的 spec」疊值**（**設計如此**：bin 的 offset 對應跟著 spec 走，套到別份 spec 上值無意義） | test_app_state.py::test_detail_binf_only_for_current_spec | 目前／非目前／無 bin 三態 |
+| 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 9 節人工清單第 4/6 項） | — |
 
 ## 6. App 狀態（spec 集合管理）
 
@@ -103,9 +106,9 @@ pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機�
 1. 從 Releases 下載 `IC_Debugger.exe` 雙擊（SmartScreen →「仍要執行」）→ 視窗開啟、無白畫面。
 2. 右上角切換 spec（R5 ↔ N25）→ 暫存器清單跟著換。
 3. 「匯入 bin」選 `examples/sample_r5.bin` → 總覽顯示 12/12、2 個 ≠Reset（SCTLR、CPACR）。
-4. 展開 SCTLR → bit ruler 顯示 M/C/Z/I/BR 藍色高亮；DFSR 的 FS 顯示「對齊（alignment）fault」。
+4. 展開 SCTLR → 「目前值／Reset」成對顯示在最上方；bit ruler 顯示 M/C/Z/I/BR 藍色高亮；DFSR 的 FS 顯示「對齊（alignment）fault」。
 5. 🌓 切深色 → 關掉重開 exe → 仍是深色（設定記憶）。
-6. 「Spec 全文」→ 兩個分頁都有內容；「原始 Markdown」與 repo 檔案一致。
+6. 「Spec 全文」→ 兩個分頁都有內容；載入 bin 後每個暫存器標頭出現「目前值」（SCTLR/CPACR 為藍色 ≠Reset）；「原始 Markdown」與 repo 檔案一致。
 7. 「Spec 管理 → 載入外部 Spec」選任一 .md → 出現在清單；「移除」正常。
 8. 「匯出報告 (.md)」→ 檔案打得開、內容與畫面一致。
 9. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。

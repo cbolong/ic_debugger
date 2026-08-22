@@ -128,7 +128,7 @@ class Api:
             spec = self._state.specs.get(sid) if sid else None
             if spec is None:
                 return {"ok": False, "error": f"找不到 spec：{spec_id or '(目前未選擇)'}"}
-            return {"ok": True, "detail": spec_detail(spec)}
+            return {"ok": True, "detail": spec_detail(spec, self._state.detail_binf(sid))}
 
     def reload_specs(self) -> dict:
         with self._lock:

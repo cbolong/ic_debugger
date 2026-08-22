@@ -271,9 +271,13 @@ tr.reg-row.open > td { background: var(--c-bg-softer); }
 
 /* ── 展開的暫存器細節 ── */
 tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
-.detail-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.detail-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
 .detail-val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; }
 .detail-meta { font-size: 12px; color: var(--c-text-muted); font-family: var(--font-mono); }
+.kv { display: flex; flex-direction: column; }
+.kv-label { font-size: 10px; font-weight: 600; color: var(--c-text-muted);
+            text-transform: uppercase; letter-spacing: .5px; }
+.val-accent { color: var(--c-accent); }
 
 /* bit ruler：由 MSB 到 LSB 一格一 bit，依欄位分組 */
 .bitruler { display: flex; align-items: flex-end; overflow-x: auto; padding: 8px 2px 12px; gap: 5px;
@@ -659,7 +663,7 @@ function renderOverview(){
   if (!diffs.length) {
     h += '<div class="banner info">所有可比較的暫存器都與 Reset 相同。</div>';
   } else {
-    h += '<div class="table-wrap"><table><thead><tr><th>暫存器</th><th>Offset</th><th>值</th><th>Reset</th><th>不同的欄位</th></tr></thead><tbody>';
+    h += '<div class="table-wrap"><table><thead><tr><th>暫存器</th><th>Offset</th><th>目前值</th><th>Reset</th><th>不同的欄位</th></tr></thead><tbody>';
     diffs.forEach(function(r){
       var changed = r.rows.filter(function(f){ return f.differs === true; }).map(function(f){ return f.name; });
       h += '<tr class="reg-row" onclick="goReg(\'' + jsq(r.name) + '\')">' +
@@ -704,7 +708,7 @@ function renderRegs(){
   }
 
   h += '<div class="table-wrap"><table><thead><tr>' +
-       '<th></th><th>暫存器</th><th>Offset</th><th>值</th><th>Reset</th>' +
+       '<th></th><th>暫存器</th><th>Offset</th><th>目前值</th><th>Reset</th>' +
        (hasBin ? '<th>狀態</th>' : '') + '<th>說明</th></tr></thead><tbody>';
   regs.forEach(function(r, ri){
     var open = !!S.expanded[r.name];
@@ -713,7 +717,8 @@ function renderRegs(){
     h += '<td class="caret">' + (open ? '▼' : '▶') + '</td>';
     h += '<td class="reg-name">' + esc(r.name) + '</td>';
     h += '<td class="mono muted">' + r.offset_hex + '</td>';
-    h += '<td class="mono">' + (r.value_hex || '<span class="muted">—</span>') + '</td>';
+    h += '<td class="mono' + (r.differs === true ? ' val-accent' : '') + '">' +
+         (r.value_hex || '<span class="muted">—</span>') + '</td>';
     h += '<td class="mono muted">' + (r.reset_hex || '—') + '</td>';
     if (hasBin) h += '<td>' + (status ? '<span class="chip ' + status[1] + '">' + status[0] + '</span>' : '') + '</td>';
     h += '<td class="reg-desc">' + esc(r.desc || '') + '</td></tr>';
@@ -726,10 +731,16 @@ function renderRegs(){
 }
 
 function renderDetail(r, ri){
+  // 「目前值 / Reset」成對並排放最前面：這兩個數字就是使用者要的答案
   var h = '<div class="detail-head">';
-  if (r.value_hex) h += '<span class="detail-val">' + r.value_hex + '</span>';
-  h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex +
-       (r.reset_hex ? ' ・ Reset ' + r.reset_hex : '') + '</span>';
+  if (r.value_hex) {
+    h += '<span class="kv"><span class="kv-label">目前值</span>' +
+         '<span class="detail-val' + (r.differs === true ? ' val-accent' : '') + '">' + r.value_hex + '</span></span>';
+  }
+  h += '<span class="kv"><span class="kv-label">Reset</span>' +
+       '<span class="detail-val muted">' + (r.reset_hex || '—') + '</span></span>';
+  h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex + '</span>';
+  if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
   if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
   h += '</div>';
   h += bitRuler(r, ri);
@@ -759,9 +770,10 @@ function bitRuler(r, ri){
 function fieldTable(r, ri, opts){
   opts = opts || {};
   var hasVal = !!r.value_hex;
+  // 欄位順序刻意讓「目前值」與「Reset」相鄰：一眼比對，不用左右掃（設計如此）
   var h = '<div class="table-wrap" style="margin-bottom:0"><table class="field-table"><thead><tr>' +
-          '<th>Bits</th><th>欄位</th>' + (hasVal ? '<th>值</th>' : '') +
-          '<th>意義</th><th>Access</th><th>Reset</th></tr></thead><tbody>';
+          '<th>Bits</th><th>欄位</th>' + (hasVal ? '<th>目前值</th>' : '') +
+          '<th>Reset</th><th>意義</th><th>Access</th></tr></thead><tbody>';
   r.rows.forEach(function(f, fi){
     var dim = f.reserved || f.kind === 'undef';
     h += '<tr class="frow' + (dim ? ' dim' : '') + (f.differs === true ? ' diff' : '') + '" id="ft-' + ri + '-' + fi + '">';
@@ -772,11 +784,12 @@ function fieldTable(r, ri, opts){
       var sub = '';
       if (f.value_bin && (f.msb - f.lsb + 1) <= 16) sub = f.value_bin;
       else if (f.value_dec && (f.msb - f.lsb + 1) > 4) sub = f.value_dec + ' (dec)';
-      h += '<td class="mono">' + v + (sub ? '<br><span class="muted" style="font-size:11px">' + sub + '</span>' : '') + '</td>';
+      h += '<td class="mono' + (f.differs === true ? ' val-accent' : '') + '">' + v +
+           (sub ? '<br><span class="muted" style="font-size:11px">' + sub + '</span>' : '') + '</td>';
     }
+    h += '<td class="mono muted">' + (f.reset_hex || '—') + '</td>';
     h += '<td class="fmeaning">' + meaningCell(f, opts.expandEnums) + '</td>';
     h += '<td class="mono muted">' + esc(f.access || '') + '</td>';
-    h += '<td class="mono muted">' + (f.reset_hex || '—') + '</td>';
     h += '</tr>';
   });
   return h + '</tbody></table></div>';
@@ -824,8 +837,12 @@ function renderSpecDoc(){
   h += '<span class="chip chip-same">' + s.register_count + ' 個暫存器</span>';
   if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個解析警告</span>';
   h += '</div>';
+  var overlaid = S.doc.registers.some(function(r){ return r.value_hex; });
   h += '<div class="doc-meta">';
   h += '本頁是軟體<b>實際依據</b>的 spec 內容（解析後），分析結果對不對、先從這裡查。';
+  h += overlaid
+    ? '目前已載入 bin，下方同頁疊上<b>目前值</b>（藍色＝與 Reset 不同）。'
+    : '載入 bin 後，本頁會同頁疊上目前值（僅目前使用中的 spec）。';
   if (s.source) h += '<br>來源文件：<b>' + esc(s.source) + '</b>';
   if (s.path) h += '<br>檔案：<span class="mono">' + esc(s.path) + '</span>';
   if (s.desc) h += '<br>' + esc(s.desc);
@@ -855,8 +872,13 @@ function renderSpecDoc(){
     h += '<div class="table-wrap">';
     h += '<div class="doc-reg-head">';
     h += '<span class="doc-reg-name">' + esc(r.name) + '</span>';
-    h += '<span class="doc-reg-meta">Offset ' + r.offset_hex + ' ・ ' + r.size + '-bit ・ Reset ' +
-         (r.reset_hex || '—（未知／依組態）') + '</span>';
+    h += '<span class="doc-reg-meta">Offset ' + r.offset_hex + ' ・ ' + r.size + '-bit</span>';
+    h += '<span class="doc-reg-meta">Reset ' + (r.reset_hex || '—（未知／依組態）') + '</span>';
+    if (r.value_hex) {
+      h += '<span class="doc-reg-meta">目前值 <b class="' + (r.differs === true ? 'val-accent' : '') + '">' +
+           r.value_hex + '</b></span>';
+      if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
+    }
     h += '</div>';
     if (r.desc) h += '<div class="doc-reg-desc">' + esc(r.desc) + '</div>';
     h += fieldTable(r, 'doc' + ri, { expandEnums: true });
