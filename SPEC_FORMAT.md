@@ -1,0 +1,84 @@
+# Spec MD 檔格式說明
+
+IC Debugger 的 CPU spec 以 Markdown 檔存放在 `specs/` 目錄，**build 時整個目錄會打包進
+exe**；app 內也可用「Spec 管理 → 載入外部 Spec」在執行時直接載入 .md 測試，確認沒問題
+再放進 `specs/` push（push 到 `main` 會自動觸發 CI 重新打包出新的 exe）。
+
+完整實例請直接看 [`specs/arm_cortex_r5.md`](specs/arm_cortex_r5.md)（ARM）與
+[`specs/andes_n25.md`](specs/andes_n25.md)（RISC-V）。
+
+## 檔案結構
+
+一個 `.md` 檔＝一顆 CPU（的一個 spec 版本）。檔名建議 `廠商_型號.md`（小寫、底線），
+例如 `arm_cortex_a55.md`、`andes_n45.md`——檔名就是 app 內部的 spec ID。
+
+```markdown
+# CPU: ARM Cortex-R5          ← 必填：顯示名稱
+# Version: r1p2               ← 建議：spec 版號（顯示在下拉選單）
+# Width: 32                   ← 選填：預設暫存器寬度（bit），預設 32，可為 8/16/32/64
+# Source: ARM DDI 0460D       ← 選填：spec 出處（追溯用）
+# Description: 一句話說明      ← 選填
+
+## 暫存器名稱                  ← 每個暫存器一節，「## 」後面只放名稱
+- Offset: 0x000               ← 必填：此暫存器在 bin dump 中的位元組位移（16 進位）
+- Size: 32                    ← 選填：此暫存器寬度，預設用檔頭 Width
+- Reset: 0x411FC152           ← 選填：reset 值；未知寫「-」
+- Description: 一句話說明      ← 選填
+
+| Bits  | Field | Access | Reset | Description |     ← 欄位表（bit field 定義）
+|-------|-------|--------|-------|-------------|
+| 31:24 | Implementer | RO | 0x41 | 實作者代碼 |
+| 0     | M     | RW     | 0     | MPU 致能   |
+
+### Enum: M                   ← 選填：某欄位「每個值代表什麼」
+- 0: MPU 關閉
+- 1: MPU 開啟
+```
+
+## 各部分規則
+
+### Offset（最重要）
+
+- **Offset = 此暫存器的值在 bin 檔中的位元組位移**，從 0 開始，不是 CPU 位址、
+  也不是 CSR 編號。bin 是 raw dump（little-endian），app 直接用 Offset 到 bin
+  對應位置取值。
+- 32-bit 暫存器佔 4 bytes、64-bit 佔 8 bytes；Offset 必須是 4 的倍數。
+- **Offset 順序必須與 dump 腳本輸出的順序一致**——第一個被 dump 的暫存器就是
+  Offset 0x000，第二個 0x004（32-bit 時），依此類推。
+
+### 欄位表
+
+- 表頭必須含 `Bits` 與 `Field` 兩欄（也接受中文：位元／欄位／存取／重置／說明），
+  欄位順序不拘，`Access`、`Reset`、`Description` 可省略。
+- `Bits`：`31:24`（高:低）或單一位元 `5`。**整個暫存器的每個 bit 都建議被表列
+  涵蓋**；沒涵蓋到的位元 app 會顯示成「（未定義）」。
+- 保留位元請命名 `RES0`／`RES1`（或 `RESERVED`），app 會淡化顯示；同名欄位
+  （多段 RES0）可以重複。
+- `Reset`：欄位的 reset 值；不寫時 app 會自動從暫存器層級的 Reset 推導。
+  未知寫 `-`。
+- 數值一律接受 `0x…`（16 進位）、`0b…`（2 進位）、十進位，可加底線分隔。
+
+### Enum 區塊
+
+- `### Enum: 欄位名稱` 必須放在該暫存器欄位表**之後**，名稱需與表中 `Field` 完全一致。
+- 每行 `- 值: 意義`。app 會把目前值對應的意義直接顯示在欄位旁，並在展開時列出
+  全部選項——這是「不用翻 spec」的關鍵，**能寫的都寫**。
+
+## 品質檢查
+
+app 的「Spec 管理」頁會列出每份 spec 的解析警告（缺 Offset、位元重疊、超出寬度、
+Enum 對不到欄位…），**新 spec 先用「載入外部 Spec」載入看警告清單，清空後再收進
+repo**。CI 也會驗證 `specs/` 內所有檔案解析無警告，有問題會擋下 build。
+
+## 給 AI 產生新 spec 的指示範本
+
+要新增 CPU spec 時，把下面這段連同 spec 來源（TRM/datasheet 的 PDF 或文字）
+交給 AI 即可：
+
+> 請依照 repo 中 `SPEC_FORMAT.md` 的格式與 `specs/arm_cortex_r5.md` 的實例，
+> 把我提供的 CPU spec 轉成一份新的 spec MD 檔。要求：
+> 1. Offset 依我的 dump 腳本輸出順序從 0x000 開始遞增（32-bit 暫存器一個佔 4 bytes）。
+> 2. 每個暫存器的每個 bit 都要被欄位表涵蓋，保留位元命名 RES0／RES1。
+> 3. 有列舉意義的欄位（模式、開關、狀態碼）務必補上 `### Enum:` 區塊，意義用繁體中文。
+> 4. Reset 值照 spec 抄；依組態接腳或實作而異的寫 `-`。
+> 5. 只根據我提供的 spec 內容填寫，不確定的值寫 `-` 並在 Description 註明，不要編造。
