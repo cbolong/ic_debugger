@@ -33,7 +33,7 @@ def build_preview_html(theme_attr: str = "") -> str:
     init = {
         "specs": [spec_summary(s) for s in specs],
         "payload": build_payload(r5, binf),
-        "spec_detail": spec_detail(r5),
+        "spec_detail": spec_detail(r5, binf),
         "version": APP_VERSION,
     }
     blob = json.dumps(init, ensure_ascii=False).replace("</", "<\\/")

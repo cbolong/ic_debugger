@@ -84,3 +84,8 @@ class AppState:
         self.current_id = spec_id
         self.cfg["last_spec"] = spec_id
         return True
+
+    def detail_binf(self, spec_id: str) -> BinFile | None:
+        """Spec 全文只對「目前使用中的 spec」疊目前 bin 的值（設計如此）：
+        bin 的 offset 對應跟著 spec 定義走，套到別份 spec 上值是無意義的。"""
+        return self.binf if spec_id == self.current_id else None

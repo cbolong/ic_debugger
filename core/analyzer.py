@@ -233,15 +233,19 @@ def spec_summary(spec: Spec) -> dict:
     }
 
 
-def spec_detail(spec: Spec) -> dict:
-    """「Spec 全文」檢視用：完整解析結果（無 bin 值）＋原始 Markdown 原文。
+def spec_detail(spec: Spec, binf: BinFile | None = None) -> dict:
+    """「Spec 全文」檢視用：完整解析結果＋原始 Markdown 原文。
 
     目的：讓使用者稽核「軟體實際依據的 spec」對不對 —— 解析後內容是引擎
     真正使用的資料，原文則供與 TRM 逐字比對。原文從 spec.path 重新讀
     （內建＝exe 解壓目錄、外部＝使用者的檔案）；讀不到時 raw=None 並附原因，
     解析內容照樣可看。
+
+    傳入 binf 時，解析後內容同頁疊上目前值（成為連續版的完整對照）；
+    呼叫端只該對「目前使用中的 spec」傳 binf —— bin 的 offset 對應是跟著
+    spec 定義走的，套到別份 spec 上值沒有意義（AppState.detail_binf 把關）。
     """
-    payload = build_payload(spec, None)
+    payload = build_payload(spec, binf)
     raw: str | None = None
     raw_error: str | None = None
     if spec.path:

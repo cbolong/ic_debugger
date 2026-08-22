@@ -61,6 +61,21 @@ def test_external_id_collision_gets_suffix(tmp_path):
     assert st.specs["arm_cortex_r5"].origin == "builtin"
 
 
+def test_detail_binf_only_for_current_spec():
+    """設計如此：Spec 全文只對「目前使用中的 spec」疊 bin 值 ——
+    bin 的 offset 對應跟著 spec 走，套到別份 spec 上值是無意義的。"""
+    from core.bin_parser import BinFile
+    st = AppState(cfg=_fresh_cfg())
+    st.load_specs()
+    st.binf = BinFile(path="x", name="x.bin", data=bytes(8))
+    cur = st.current_id
+    other = next(sid for sid in st.specs if sid != cur)
+    assert st.detail_binf(cur) is st.binf
+    assert st.detail_binf(other) is None
+    st.binf = None
+    assert st.detail_binf(cur) is None
+
+
 def test_reload_keeps_external(tmp_path):
     p = tmp_path / "ext.md"
     p.write_text(EXT_SPEC, encoding="utf-8")
