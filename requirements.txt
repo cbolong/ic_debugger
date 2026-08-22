@@ -1,0 +1,14 @@
+pywebview>=5.0.0
+
+# --- Windows WebView2 backend（pywebview → winforms → pythonnet）---
+# Pin 原因（沿 ic-monitor 的教訓）：CI 每次抓最新版，會讓同一份 code 的兩次
+# build 行為不同、且 pythonnet/clr_loader 版本組合踩過載入失敗。要升級請
+# 兩個一起升，並用真的從 Releases 下載的 exe 實測後再改。
+# 平台標記讓 Linux/macOS 開發環境（跑測試、preview）不必安裝 .NET 相依。
+pythonnet==3.1.0; sys_platform == 'win32'
+clr_loader==0.3.1; sys_platform == 'win32'
+
+# 開發／CI 工具（非執行期相依）：
+#   pip install "pyinstaller>=6,<7" pytest      # 打包與測試
+#   pip install pillow                          # 只有重畫 icon（create_icon.py）才需要
+#   pip install playwright                      # 只有跑 tools/preview.py 截圖才需要

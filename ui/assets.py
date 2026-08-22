@@ -1,0 +1,848 @@
+"""UI 資產：主題 tokens 與主視窗 HTML/CSS/JS。
+
+慣例（沿襲 ic-monitor 的教訓）：
+- 色票單一來源：所有顏色都走 :root 的 --c-* tokens；深色只重定義 tokens。
+  不要在下面的 CSS/JS 撒新的 hex 色碼。
+- MAIN_HTML 用 raw string（r\"\"\"）：JS 的反斜線不會被 Python 吃掉。
+- 這個模組**不准 import webview**：測試與 tools/preview.py 都直接 import 它。
+- 值的呈現一律用 payload 給的字串（hex/bin/dec 都在 Python 格式化好了），
+  JS 不做任何位元運算 —— 64-bit 會超過 JS Number 安全範圍。
+"""
+
+from core.version import APP_VERSION
+
+# ─────────────────────────────────────────────
+# 主題 tokens — 淺色定義在 :root，深色只重定義同一組。
+# WebView2 不會把 OS 深色偏好反映到 prefers-color-scheme（ic-monitor §48），
+# 所以 Python 端偵測 OS 外觀後把 data-theme="dark" 蓋在 <html> 上；
+# 使用者手動切換存 localStorage + config，優先於 OS。
+# ─────────────────────────────────────────────
+_DARK_TOKENS = """
+  color-scheme: dark;
+  --c-text:#e6eaf0; --c-text-muted:#97a1b0;
+  --c-accent:#4a9eff; --c-accent-hover:#67b0ff; --c-accent-bg:#1d2c42;
+  --c-danger:#ff5b52; --c-danger-bg:#2d1f21; --c-danger-border:#b03b48; --c-danger-text:#ff9a95;
+  --c-success:#35d15f; --c-success-bg:#1f2b25; --c-success-border:#3aa670; --c-success-text:#7ee29d;
+  --c-warn:#ffd93d; --c-warn-bg:#2d281d; --c-warn-border:#a88738; --c-warn-text:#e8c15a;
+  --c-info:#4aa3e0;
+  --c-border:#2e323c; --c-divider:#454b58;
+  --c-surface:#1e2027; --c-input-border:#3a3f4a;
+  --c-bg-soft:#14161b; --c-bg-softer:#22252e;
+  --c-scrollbar:#4a5058;
+  --c-elevate: 0 1px 2px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.28);
+"""
+
+THEME_ROOT_CSS = """:root {
+  color-scheme: light dark;
+  --c-text:           #1d1d1f;
+  --c-text-muted:     #86868b;
+  --c-accent:         #0071e3;
+  --c-accent-hover:   #0064d2;
+  --c-accent-bg:      #e3effd;
+  --c-danger:         #ff3b30;
+  --c-danger-bg:      #ffe0e0;
+  --c-danger-border:  #eda9a9;
+  --c-danger-text:    #c0392b;
+  --c-success:        #30d158;
+  --c-success-bg:     #d1f0d9;
+  --c-success-border: #b6d7a8;
+  --c-success-text:   #1e7e34;
+  --c-warn:           #ffd93d;
+  --c-warn-bg:        #fff8e0;
+  --c-warn-border:    #e6cd7a;
+  --c-warn-text:      #b8860b;
+  --c-info:           #3498db;
+  --c-border:         #e5e5ea;
+  --c-divider:        #b0b4be;
+  --c-surface:        #ffffff;
+  --c-input-border:   #d2d2d7;
+  --c-bg-soft:        #e9ebf0;
+  --c-bg-softer:      #eef0f4;
+  --c-scrollbar:      #c1c1c1;
+  --c-elevate: 0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {__DARK_TOKENS__}
+}
+:root[data-theme="dark"] {__DARK_TOKENS__}
+:root[data-theme="light"] { color-scheme: light; }
+""".replace("__DARK_TOKENS__", _DARK_TOKENS)
+
+
+MAIN_HTML = r"""<!DOCTYPE html>
+<html __html_theme_attr__>
+<head>
+<meta charset="utf-8">
+<script>
+// ── 主題（沿 ic-monitor §47/§48/§59 的作法）────────────────────────────
+// Python 依 OS 外觀先蓋 data-theme；localStorage 有手動覆寫時以覆寫為準，
+// 在 body render 前套用（不閃爍）。🌓 按鈕切換 + 存 localStorage + 回寫 config。
+(function(){
+  var KEY = 'icd-theme';
+  function apply(t){
+    var r = document.documentElement;
+    if (t === 'dark' || t === 'light') r.setAttribute('data-theme', t);
+    else r.removeAttribute('data-theme');
+  }
+  var ov = null;
+  try { ov = localStorage.getItem(KEY); } catch (e) {}
+  if (ov === 'dark' || ov === 'light') apply(ov);
+  window._toggleTheme = function(){
+    var cur = document.documentElement.getAttribute('data-theme') || 'light';
+    var next = (cur === 'dark') ? 'light' : 'dark';
+    apply(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    try { if (window.pywebview && pywebview.api && pywebview.api.set_theme) pywebview.api.set_theme(next); } catch (e) {}
+  };
+})();
+// ── JS 錯誤緩衝：pywebview.api 可能還沒注入，先收著再回傳 Python 寫 log ──
+window._jsErrors = [];
+window.addEventListener('error', function(e){
+  window._jsErrors.push({ msg: (e && e.message) || String(e), line: (e && e.lineno) || 0, stack: (e && e.error && e.error.stack) || '' });
+});
+setInterval(function(){
+  if (!window._jsErrors.length) return;
+  if (!(window.pywebview && pywebview.api && pywebview.api.log_js_error)) return;
+  while (window._jsErrors.length) {
+    var e = window._jsErrors.shift();
+    try { pywebview.api.log_js_error(e.msg + ' @' + e.line, e.stack || ''); }
+    catch (_) { window._jsErrors.unshift(e); break; }
+  }
+}, 1000);
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+__THEME_ROOT_CSS__
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --font-mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace; }
+body {
+  font-family: "Noto Sans TC", "Segoe UI", "Microsoft JhengHei", -apple-system, sans-serif;
+  background: var(--c-bg-soft); color: var(--c-text);
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  font-size: 14px;
+}
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--c-text-muted); }
+
+/* ── Top bar（深淺色都維持深色，同 ic-monitor）── */
+.topbar {
+  background: #1c1c1e; color: #fff;
+  padding: 0 16px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.topbar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; white-space: nowrap; }
+.bin-chip {
+  font-size: 12px; color: #ccc; background: rgba(255,255,255,.10);
+  padding: 4px 10px; border-radius: 7px; font-family: var(--font-mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
+}
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.spec-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .6px; }
+.spec-select {
+  background: #3a3a3c; color: #fff; border: 1px solid #48484a; border-radius: 7px;
+  padding: 6px 8px; font-size: 13px; cursor: pointer; outline: none; max-width: 280px;
+}
+.spec-select:focus { border-color: var(--c-accent); }
+.btn-accent {
+  background: var(--c-accent); color: #fff; border: none; border-radius: 7px;
+  padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; line-height: 1.4;
+}
+.btn-accent:hover { background: var(--c-accent-hover); }
+.theme-toggle {
+  background: rgba(255,255,255,.12); border: none; color: #fff; width: 30px; height: 30px;
+  border-radius: 7px; cursor: pointer; font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.theme-toggle:hover { background: rgba(255,255,255,.22); }
+
+/* ── Layout ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: 190px; flex-shrink: 0; background: #2c2c2e; color: #fff;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-section {
+  padding: 14px 12px 6px; font-size: 10px; font-weight: 600; color: #888;
+  text-transform: uppercase; letter-spacing: .8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 14px; font-size: 13px; line-height: 1.5; color: #ccc;
+  cursor: pointer; border-radius: 7px; margin: 1px 6px;
+  border: none; background: none; width: calc(100% - 12px); text-align: left;
+  font-family: inherit;
+}
+.nav-item:hover { background: #3a3a3c; color: #fff; }
+.nav-item.active { background: var(--c-accent); color: #fff; }
+.nav-badge {
+  margin-left: auto; font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+  background: rgba(255,255,255,.15); border-radius: 9px; padding: 1px 7px;
+}
+.sidebar-footer { margin-top: auto; padding: 12px 14px; font-size: 11px; color: #777; }
+
+.content { flex: 1; overflow-y: auto; padding: 20px 24px; scrollbar-color: var(--c-scrollbar) transparent; }
+.content::-webkit-scrollbar { width: 10px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--c-scrollbar); border-radius: 5px; }
+
+/* ── 卡片與區塊 ── */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 12px; margin-bottom: 20px; }
+.card {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px;
+  padding: 14px 16px; box-shadow: var(--c-elevate);
+}
+.card-num { font-size: 26px; font-weight: 700; color: var(--c-text); font-family: var(--font-mono); }
+.card-num.accent { color: var(--c-accent); }
+.card-num.warn { color: var(--c-warn-text); }
+.card-label { font-size: 12px; color: var(--c-text-muted); margin-top: 3px; }
+.card-sub { font-size: 11px; color: var(--c-text-muted); margin-top: 2px; font-family: var(--font-mono); }
+.card.card-warn { background: var(--c-warn-bg); border-color: var(--c-warn-border); }
+.card.clickable { cursor: pointer; }
+.card.clickable:hover { border-color: var(--c-accent); }
+
+.section-title {
+  font-size: 14px; font-weight: 600; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px;
+}
+.banner {
+  border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px;
+  border: 1px solid var(--c-warn-border); background: var(--c-warn-bg); color: var(--c-warn-text);
+}
+.banner.info { border-color: var(--c-border); background: var(--c-accent-bg); color: var(--c-text); }
+
+.table-wrap {
+  background: var(--c-surface); border-radius: 12px; border: 1px solid var(--c-border);
+  overflow-x: auto; box-shadow: var(--c-elevate); margin-bottom: 16px;
+  scrollbar-color: var(--c-scrollbar) transparent;
+}
+.table-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
+.table-wrap::-webkit-scrollbar-track { background: transparent; }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--c-scrollbar); border-radius: 4px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 9px 12px; color: var(--c-text-muted); font-weight: 600;
+  font-size: 11px; letter-spacing: .4px; border-bottom: 1px solid var(--c-divider);
+  white-space: nowrap; background: var(--c-surface);
+}
+td { padding: 8px 12px; border-bottom: 1px solid var(--c-border); vertical-align: top; }
+tr:last-child > td { border-bottom: none; }
+tr.reg-row { cursor: pointer; }
+tr.reg-row:hover > td { background: var(--c-bg-softer); }
+tr.reg-row.open > td { background: var(--c-bg-softer); }
+.reg-name { font-weight: 600; font-family: var(--font-mono); }
+.reg-desc { font-size: 12px; color: var(--c-text-muted); }
+.caret { display: inline-block; width: 14px; color: var(--c-text-muted); font-size: 11px; }
+
+/* 狀態 chips */
+.chip {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.chip-diff { color: var(--c-accent); background: var(--c-accent-bg); }
+.chip-same { color: var(--c-text-muted); background: var(--c-bg-softer); }
+.chip-warn { color: var(--c-warn-text); background: var(--c-warn-bg); }
+.chip-none { color: var(--c-text-muted); background: transparent; border: 1px dashed var(--c-border); }
+.chip-builtin { color: var(--c-success-text); background: var(--c-success-bg); }
+.chip-ext { color: var(--c-accent); background: var(--c-accent-bg); }
+
+/* ── 工具列 ── */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.search-input {
+  flex: 1; min-width: 220px; max-width: 420px;
+  background: var(--c-surface); color: var(--c-text);
+  border: 1px solid var(--c-input-border); border-radius: 8px;
+  padding: 7px 12px; font-size: 13px; outline: none; font-family: inherit;
+}
+.search-input:focus { border-color: var(--c-accent); }
+.seg { display: flex; border: 1px solid var(--c-input-border); border-radius: 8px; overflow: hidden; }
+.seg button {
+  border: none; background: var(--c-surface); color: var(--c-text-muted);
+  padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.seg button.active { background: var(--c-accent); color: #fff; }
+.btn {
+  background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-input-border);
+  border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+
+/* ── 展開的暫存器細節 ── */
+tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
+.detail-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.detail-val { font-family: var(--font-mono); font-size: 16px; font-weight: 700; }
+.detail-meta { font-size: 12px; color: var(--c-text-muted); font-family: var(--font-mono); }
+
+/* bit ruler：由 MSB 到 LSB 一格一 bit，依欄位分組 */
+.bitruler { display: flex; align-items: flex-end; overflow-x: auto; padding: 8px 2px 12px; gap: 5px;
+            scrollbar-color: var(--c-scrollbar) transparent; }
+.bitruler::-webkit-scrollbar { height: 6px; }
+.bitruler::-webkit-scrollbar-thumb { background: var(--c-scrollbar); border-radius: 3px; }
+.bitgroup { cursor: pointer; flex-shrink: 0; }
+.bitidx { display: flex; justify-content: space-between; font-size: 9px; color: var(--c-text-muted);
+          font-family: var(--font-mono); padding: 0 1px 2px; min-height: 14px; }
+.bitcells { display: flex; }
+.bitcell {
+  width: 21px; height: 26px; margin-left: -1px;
+  border: 1px solid var(--c-divider); background: var(--c-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 12px;
+}
+.bitcells .bitcell:first-child { margin-left: 0; border-radius: 4px 0 0 4px; }
+.bitcells .bitcell:last-child { border-radius: 0 4px 4px 0; }
+.bitlabel {
+  font-size: 10px; text-align: center; color: var(--c-text-muted); padding-top: 3px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bitgroup.res .bitcell { color: var(--c-text-muted); background: var(--c-bg-softer); }
+.bitgroup.diff .bitcell { background: var(--c-accent-bg); border-color: var(--c-accent); color: var(--c-accent); font-weight: 700; }
+.bitgroup.diff .bitlabel { color: var(--c-accent); font-weight: 600; }
+.bitgroup:hover .bitlabel { color: var(--c-accent); }
+
+/* 欄位表 */
+.field-table td { padding: 6px 10px; font-size: 12.5px; }
+.field-table .frow.dim > td { color: var(--c-text-muted); }
+.field-table .frow.diff > td:first-child { box-shadow: inset 3px 0 0 var(--c-accent); }
+.field-table .frow.flash > td { background: var(--c-accent-bg); }
+.fname { font-weight: 600; font-family: var(--font-mono); }
+.fmeaning b { font-weight: 600; }
+.fmeaning .fdesc { display: block; font-size: 11.5px; color: var(--c-text-muted); margin-top: 1px; }
+.enum-details { margin-top: 4px; }
+.enum-details summary { cursor: pointer; font-size: 11px; color: var(--c-accent); user-select: none; }
+.enum-table { width: auto; margin-top: 4px; font-size: 11.5px; }
+.enum-table td { padding: 2px 10px 2px 0; border: none; color: var(--c-text-muted); }
+.enum-table tr.current td { color: var(--c-accent); font-weight: 600; }
+
+/* ── Hex dump ── */
+.hex-table td { font-family: var(--font-mono); white-space: nowrap; }
+.hex-off { color: var(--c-text-muted); font-size: 12px; }
+.hexword { cursor: pointer; border-radius: 6px; padding: 3px 6px; margin: -3px -6px; }
+.hexword:hover { background: var(--c-bg-softer); }
+.hw-val { font-size: 13px; }
+.hw-val.diff { color: var(--c-accent); font-weight: 700; }
+.hw-reg { font-size: 10.5px; color: var(--c-text-muted); }
+
+/* ── Spec 管理 ── */
+.spec-card {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px;
+  padding: 14px 16px; box-shadow: var(--c-elevate); margin-bottom: 12px;
+}
+.spec-card.current { border-color: var(--c-accent); }
+.spec-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.spec-card-name { font-weight: 600; font-size: 14px; }
+.spec-card-path { font-size: 11px; color: var(--c-text-muted); font-family: var(--font-mono); margin-top: 4px; word-break: break-all; }
+.spec-card-actions { margin-left: auto; display: flex; gap: 8px; }
+.spec-warnings { margin-top: 8px; }
+.spec-warnings summary { cursor: pointer; font-size: 12px; color: var(--c-warn-text); }
+.spec-warnings li { font-size: 12px; color: var(--c-warn-text); margin: 4px 0 0 18px; font-family: var(--font-mono); }
+
+/* 空狀態 */
+.empty {
+  text-align: center; padding: 48px 20px; color: var(--c-text-muted);
+  background: var(--c-surface); border: 1px dashed var(--c-input-border); border-radius: 12px;
+}
+.empty .big { font-size: 34px; margin-bottom: 10px; }
+.empty p { margin: 4px 0 14px; font-size: 13px; }
+
+/* Toast */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+  background: #1c1c1e; color: #fff; padding: 10px 18px; border-radius: 10px;
+  font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 99;
+  max-width: 70vw; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.err { background: var(--c-danger-text); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">IC Debugger</span>
+    <span class="bin-chip" id="binChip">未載入 bin（spec 閱讀模式）</span>
+  </div>
+  <div class="topbar-right">
+    <span class="spec-label">CPU Spec</span>
+    <select class="spec-select" id="specSelect" onchange="chooseSpec(this.value)"></select>
+    <button class="btn-accent" onclick="importBin()">匯入 bin</button>
+    <button class="theme-toggle" onclick="_toggleTheme()" title="切換 淺色 / 深色">🌓</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-section">分析</div>
+    <button class="nav-item active" data-view="overview" onclick="nav('overview')">📊 總覽</button>
+    <button class="nav-item" data-view="regs" onclick="nav('regs')">🧾 暫存器 <span class="nav-badge" id="navRegCount"></span></button>
+    <button class="nav-item" data-view="hex" onclick="nav('hex')">🔢 原始資料</button>
+    <div class="sidebar-section">設定</div>
+    <button class="nav-item" data-view="specs" onclick="nav('specs')">📚 Spec 管理</button>
+    <div class="sidebar-footer">IC Debugger v__APP_VERSION__</div>
+  </div>
+  <div class="content" id="content"><div id="view"></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ────────────────────────────────────────────────────────────────────
+// App 狀態：payload 由 Python 的 core.analyzer 整包給（值都是格式化字串），
+// JS 只做過濾與渲染。
+// ────────────────────────────────────────────────────────────────────
+var S = {
+  inited: false,
+  specs: [],        // spec 摘要清單（下拉選單 / Spec 管理用）
+  payload: null,    // 目前分析結果
+  view: 'overview',
+  q: '',
+  onlyDiff: false,
+  expanded: {},     // 暫存器名稱 → 是否展開
+};
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// 嵌進 onclick="fn('…')" 單引號字串的跳脫（先處理 JS 字串層，再過 esc 處理 HTML 層）
+function jsq(s){
+  return esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
+
+var _toastTimer = null;
+function showToast(msg, isErr){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ t.className = ''; }, isErr ? 5000 : 2600);
+}
+
+// ── Python bridge ──────────────────────────────────────────────────
+function api(name){
+  var args = Array.prototype.slice.call(arguments, 1);
+  if (!(window.pywebview && pywebview.api && pywebview.api[name])) {
+    showToast('預覽模式：「' + name + '」需在應用程式中執行', true);
+    return Promise.reject('no-api');
+  }
+  return pywebview.api[name].apply(pywebview.api, args);
+}
+
+// 統一處理 API 回應：{ok, error?, cancelled?, payload?, specs?}
+function handle(resp, after){
+  if (!resp || resp.cancelled) return;
+  if (!resp.ok) { showToast(resp.error || '操作失敗', true); return; }
+  if (resp.specs) S.specs = resp.specs;
+  if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
+  renderAll();
+  if (after) after(resp);
+}
+function apiFail(e){ if (e !== 'no-api') showToast('操作失敗：' + e, true); }
+
+// ── 初始化：pywebview 就緒後拉初始資料；預覽模式吃 window.__PREVIEW__ ──
+function init(){
+  if (S.inited) return;
+  S.inited = true;
+  if (window.__PREVIEW__) {
+    S.specs = window.__PREVIEW__.specs || [];
+    S.payload = window.__PREVIEW__.payload || null;
+    prepPayload(); renderAll();
+    return;
+  }
+  api('get_init').then(function(resp){ handle(resp); }).catch(apiFail);
+}
+window.addEventListener('pywebviewready', init);
+var _initPoll = setInterval(function(){
+  if (window.__PREVIEW__ || (window.pywebview && pywebview.api)) { clearInterval(_initPoll); init(); }
+}, 150);
+
+// ── 動作 ───────────────────────────────────────────────────────────
+function importBin(){ api('import_bin').then(function(r){ handle(r, function(){ showToast('已載入 ' + (S.payload && S.payload.bin ? S.payload.bin.name : 'bin')); }); }).catch(apiFail); }
+function chooseSpec(id){ api('choose_spec', id).then(handle).catch(apiFail); }
+function addSpec(){ api('add_external_spec').then(function(r){ handle(r, function(){ showToast('已載入外部 spec'); }); }).catch(apiFail); }
+function removeSpec(id){ api('remove_external_spec', id).then(function(r){ handle(r, function(){ showToast('已移除'); }); }).catch(apiFail); }
+function reloadSpecs(){ api('reload_specs').then(function(r){ handle(r, function(){ showToast('已重新載入 spec'); }); }).catch(apiFail); }
+function exportReport(){
+  api('export_report', S.onlyDiff).then(function(r){
+    if (!r || r.cancelled) return;
+    if (r.ok) showToast('已匯出：' + r.path); else showToast(r.error || '匯出失敗', true);
+  }).catch(apiFail);
+}
+function nav(v){ S.view = v; renderAll(); }
+function setQuery(q){ S.q = q; renderView(); }
+function setOnlyDiff(v){ S.onlyDiff = v; renderView(); }
+function toggleReg(name){ S.expanded[name] = !S.expanded[name]; renderView(); }
+function setAll(open){
+  visibleRegs().forEach(function(r){ S.expanded[r.name] = open; });
+  renderView();
+}
+// 從其他頁跳到某個暫存器（展開 + 捲動；必要時解除搜尋／篩選讓目標可見）
+function goReg(name){
+  S.view = 'regs'; S.expanded[name] = true;
+  var reg = (S.payload ? S.payload.registers : []).filter(function(r){ return r.name === name; })[0];
+  if (reg) {
+    if (S.q && reg._search.indexOf(S.q.trim().toLowerCase()) < 0) S.q = '';
+    if (S.onlyDiff && reg.differs !== true) S.onlyDiff = false;
+  }
+  renderAll();
+  var el = document.getElementById('reg-' + cssId(name));
+  if (el) { el.scrollIntoView({ block: 'center' }); }
+}
+// bit ruler 點欄位 → 對應表格列捲動 + 閃爍
+function focusField(ri, fi){
+  var row = document.getElementById('ft-' + ri + '-' + fi);
+  if (!row) return;
+  row.scrollIntoView({ block: 'center' });
+  row.classList.add('flash');
+  setTimeout(function(){ row.classList.remove('flash'); }, 900);
+}
+
+// ── payload 前處理：搜尋索引 ───────────────────────────────────────
+function prepPayload(){
+  S.expanded = {};
+  if (!S.payload) return;
+  S.payload.registers.forEach(function(r){
+    var parts = [r.name, r.desc || ''];
+    r.rows.forEach(function(f){
+      parts.push(f.name, f.desc || '');
+      (f.enum || []).forEach(function(e){ parts.push(e.label); });
+    });
+    r._search = parts.join(' ').toLowerCase();
+  });
+}
+
+function visibleRegs(){
+  if (!S.payload) return [];
+  var q = S.q.trim().toLowerCase();
+  return S.payload.registers.filter(function(r){
+    if (S.onlyDiff && r.differs !== true) return false;
+    return !q || r._search.indexOf(q) >= 0;
+  });
+}
+
+function cssId(s){ return String(s).replace(/[^A-Za-z0-9_-]/g, '_'); }
+
+function regStatus(r){
+  if (!S.payload || !S.payload.bin) return null;
+  if (!r.covered) return r.partial ? ['截斷', 'chip-warn'] : ['未涵蓋', 'chip-warn'];
+  if (r.differs === true) return ['≠ Reset', 'chip-diff'];
+  if (r.differs === false) return ['= Reset', 'chip-same'];
+  return ['無基準', 'chip-none'];
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 渲染
+// ────────────────────────────────────────────────────────────────────
+function renderAll(){
+  var hasBin = S.payload && S.payload.bin;
+  document.getElementById('binChip').textContent = hasBin
+    ? S.payload.bin.name + '（' + S.payload.bin.size.toLocaleString() + ' bytes）'
+    : '未載入 bin（spec 閱讀模式）';
+
+  var sel = document.getElementById('specSelect');
+  sel.innerHTML = S.specs.map(function(s){
+    return '<option value="' + esc(s.id) + '">' + esc(s.display_name) +
+           (s.origin === 'external' ? '（外部）' : '') + '</option>';
+  }).join('');
+  if (S.payload) sel.value = S.payload.spec.id;
+
+  document.getElementById('navRegCount').textContent = S.payload ? S.payload.stats.total : '';
+  document.querySelectorAll('.nav-item').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-view') === S.view);
+  });
+  renderView();
+}
+
+function renderView(){
+  var el = document.getElementById('view');
+  // 重繪會換掉整個 innerHTML：先記住搜尋框是否持有焦點，繪完還回去
+  var hadFocus = document.activeElement && document.activeElement.id === 'searchInput';
+  if (!S.payload && S.view !== 'specs') {
+    el.innerHTML = '<div class="empty"><div class="big">🕐</div><p>' +
+      (S.inited ? '找不到任何 spec：請到「Spec 管理」載入' : '載入中…') + '</p></div>';
+    return;
+  }
+  if (S.view === 'overview') el.innerHTML = renderOverview();
+  else if (S.view === 'regs') el.innerHTML = renderRegs();
+  else if (S.view === 'hex') el.innerHTML = renderHex();
+  else el.innerHTML = renderSpecs();
+  var q = document.getElementById('searchInput');
+  if (q) {
+    q.value = S.q;
+    if (hadFocus) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  }
+}
+
+// ── 總覽 ───────────────────────────────────────────────────────────
+function renderOverview(){
+  var p = S.payload, st = p.stats, h = '';
+  var warnCount = p.spec.warnings.length;
+
+  h += '<div class="cards">';
+  h += '<div class="card"><div class="card-num" style="font-size:17px; line-height:2.1">' + esc(p.spec.display_name) + '</div>' +
+       '<div class="card-label">目前 Spec ・ ' + st.total + ' 個暫存器</div>' +
+       (p.spec.source ? '<div class="card-sub">' + esc(p.spec.source) + '</div>' : '') + '</div>';
+  if (p.bin) {
+    h += '<div class="card"><div class="card-num" style="font-size:17px; line-height:2.1">' + esc(p.bin.name) + '</div>' +
+         '<div class="card-label">bin 檔 ・ ' + p.bin.size.toLocaleString() + ' bytes</div></div>';
+    h += '<div class="card"><div class="card-num">' + st.covered + '<span class="muted" style="font-size:15px">/' + st.total + '</span></div><div class="card-label">有值的暫存器</div></div>';
+    h += '<div class="card clickable" onclick="setOnlyDiff(true); nav(\'regs\')"><div class="card-num accent">' + st.differs + '</div><div class="card-label">與 Reset 不同</div></div>';
+  }
+  h += '</div>';
+
+  if (warnCount) {
+    h += '<div class="card card-warn clickable" style="margin-bottom:14px" onclick="nav(\'specs\')">⚠ 這份 spec 有 ' +
+         warnCount + ' 個解析警告，內容可能不完整 — 點此到「Spec 管理」檢視</div>';
+  }
+  if (p.hexdump && p.hexdump.note) {
+    h += '<div class="banner">⚠ ' + esc(p.hexdump.note) + '</div>';
+  }
+
+  if (!p.bin) {
+    h += '<div class="empty"><div class="big">📥</div>' +
+         '<p>匯入 register dump（raw bin、little-endian）後，這裡會依「' + esc(p.spec.display_name) +
+         '」spec 解碼每個暫存器。<br>現在也可以直接到「暫存器」頁把這份 spec 當手冊翻。</p>' +
+         '<button class="btn-accent" onclick="importBin()">匯入 bin 檔</button></div>';
+    return h;
+  }
+
+  var diffs = p.registers.filter(function(r){ return r.differs === true; });
+  h += '<div class="section-title">與 Reset 不同的暫存器 <span class="muted">(' + diffs.length + ')</span></div>';
+  if (!diffs.length) {
+    h += '<div class="banner info">所有可比較的暫存器都與 Reset 相同。</div>';
+  } else {
+    h += '<div class="table-wrap"><table><thead><tr><th>暫存器</th><th>Offset</th><th>值</th><th>Reset</th><th>不同的欄位</th></tr></thead><tbody>';
+    diffs.forEach(function(r){
+      var changed = r.rows.filter(function(f){ return f.differs === true; }).map(function(f){ return f.name; });
+      h += '<tr class="reg-row" onclick="goReg(\'' + jsq(r.name) + '\')">' +
+           '<td class="reg-name">' + esc(r.name) + '</td>' +
+           '<td class="mono muted">' + r.offset_hex + '</td>' +
+           '<td class="mono">' + r.value_hex + '</td>' +
+           '<td class="mono muted">' + (r.reset_hex || '—') + '</td>' +
+           '<td>' + esc(changed.join('、') || '（依欄位無法判定）') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
+  var uncovered = p.registers.filter(function(r){ return !r.covered; });
+  if (uncovered.length) {
+    h += '<div class="section-title">bin 未涵蓋的暫存器 <span class="muted">(' + uncovered.length + ')</span></div>';
+    h += '<div class="banner">' + uncovered.map(function(r){ return esc(r.name); }).join('、') +
+         '：bin 檔長度不足（檔案 ' + st.bin_size + ' bytes，spec 定義到 0x' +
+         st.spec_span_bytes.toString(16).toUpperCase() + '）。</div>';
+  }
+  return h;
+}
+
+// ── 暫存器 ─────────────────────────────────────────────────────────
+function renderRegs(){
+  var regs = visibleRegs();
+  var hasBin = !!S.payload.bin;
+  var h = '<div class="toolbar">';
+  h += '<input id="searchInput" class="search-input" placeholder="搜尋暫存器 / 欄位 / 說明…" oninput="setQuery(this.value)">';
+  if (hasBin) {
+    h += '<div class="seg">' +
+         '<button class="' + (S.onlyDiff ? '' : 'active') + '" onclick="setOnlyDiff(false)">全部</button>' +
+         '<button class="' + (S.onlyDiff ? 'active' : '') + '" onclick="setOnlyDiff(true)">≠ Reset</button></div>';
+  }
+  h += '<button class="btn" onclick="setAll(true)">全部展開</button>';
+  h += '<button class="btn" onclick="setAll(false)">全部收合</button>';
+  h += '<button class="btn" onclick="exportReport()">匯出報告 (.md)</button>';
+  h += '</div>';
+
+  if (!regs.length) {
+    h += '<div class="empty"><div class="big">🔍</div><p>沒有符合條件的暫存器</p></div>';
+    return h;
+  }
+
+  h += '<div class="table-wrap"><table><thead><tr>' +
+       '<th></th><th>暫存器</th><th>Offset</th><th>值</th><th>Reset</th>' +
+       (hasBin ? '<th>狀態</th>' : '') + '<th>說明</th></tr></thead><tbody>';
+  regs.forEach(function(r, ri){
+    var open = !!S.expanded[r.name];
+    var status = regStatus(r);
+    h += '<tr class="reg-row' + (open ? ' open' : '') + '" id="reg-' + cssId(r.name) + '" onclick="toggleReg(\'' + jsq(r.name) + '\')">';
+    h += '<td class="caret">' + (open ? '▼' : '▶') + '</td>';
+    h += '<td class="reg-name">' + esc(r.name) + '</td>';
+    h += '<td class="mono muted">' + r.offset_hex + '</td>';
+    h += '<td class="mono">' + (r.value_hex || '<span class="muted">—</span>') + '</td>';
+    h += '<td class="mono muted">' + (r.reset_hex || '—') + '</td>';
+    if (hasBin) h += '<td>' + (status ? '<span class="chip ' + status[1] + '">' + status[0] + '</span>' : '') + '</td>';
+    h += '<td class="reg-desc">' + esc(r.desc || '') + '</td></tr>';
+    if (open) {
+      h += '<tr class="detail-row"><td colspan="' + (hasBin ? 7 : 6) + '">' + renderDetail(r, ri) + '</td></tr>';
+    }
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function renderDetail(r, ri){
+  var h = '<div class="detail-head">';
+  if (r.value_hex) h += '<span class="detail-val">' + r.value_hex + '</span>';
+  h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex +
+       (r.reset_hex ? ' ・ Reset ' + r.reset_hex : '') + '</span>';
+  if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
+  h += '</div>';
+  h += bitRuler(r, ri);
+  h += fieldTable(r, ri);
+  return h;
+}
+
+function bitRuler(r, ri){
+  var h = '<div class="bitruler">';
+  r.rows.forEach(function(row, fi){
+    var cls = 'bitgroup' +
+      (row.differs === true ? ' diff' : '') +
+      ((row.reserved || row.kind === 'undef') && row.differs !== true ? ' res' : '');
+    h += '<div class="' + cls + '" onclick="focusField(' + ri + ',' + fi + ')" title="' +
+         esc(row.name + ' [' + row.bits + ']' + (row.enum_label ? '：' + row.enum_label : '')) + '">';
+    h += '<div class="bitidx"><span>' + row.msb + '</span>' + (row.msb !== row.lsb ? '<span>' + row.lsb + '</span>' : '') + '</div>';
+    h += '<div class="bitcells">';
+    for (var b = row.msb; b >= row.lsb; b--) {
+      var v = r.value_bits ? r.value_bits.charAt(r.size - 1 - b) : '';
+      h += '<div class="bitcell">' + v + '</div>';
+    }
+    h += '</div><div class="bitlabel">' + esc(row.name) + '</div></div>';
+  });
+  return h + '</div>';
+}
+
+function fieldTable(r, ri){
+  var hasVal = !!r.value_hex;
+  var h = '<div class="table-wrap" style="margin-bottom:0"><table class="field-table"><thead><tr>' +
+          '<th>Bits</th><th>欄位</th>' + (hasVal ? '<th>值</th>' : '') +
+          '<th>意義</th><th>Access</th><th>Reset</th></tr></thead><tbody>';
+  r.rows.forEach(function(f, fi){
+    var dim = f.reserved || f.kind === 'undef';
+    h += '<tr class="frow' + (dim ? ' dim' : '') + (f.differs === true ? ' diff' : '') + '" id="ft-' + ri + '-' + fi + '">';
+    h += '<td class="mono muted">' + f.bits + '</td>';
+    h += '<td class="fname">' + esc(f.name) + '</td>';
+    if (hasVal) {
+      var v = f.value_hex || '—';
+      var sub = '';
+      if (f.value_bin && (f.msb - f.lsb + 1) <= 16) sub = f.value_bin;
+      else if (f.value_dec && (f.msb - f.lsb + 1) > 4) sub = f.value_dec + ' (dec)';
+      h += '<td class="mono">' + v + (sub ? '<br><span class="muted" style="font-size:11px">' + sub + '</span>' : '') + '</td>';
+    }
+    h += '<td class="fmeaning">' + meaningCell(f) + '</td>';
+    h += '<td class="mono muted">' + esc(f.access || '') + '</td>';
+    h += '<td class="mono muted">' + (f.reset_hex || '—') + '</td>';
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+function meaningCell(f){
+  var h = '';
+  if (f.enum_label) {
+    h += '<b>' + esc(f.enum_label) + '</b>';
+    if (f.desc) h += '<span class="fdesc">' + esc(f.desc) + '</span>';
+  } else {
+    h += esc(f.desc || '');
+  }
+  if (f.enum && f.enum.length) {
+    h += '<details class="enum-details"><summary>全部數值（' + f.enum.length + '）</summary><table class="enum-table">';
+    f.enum.forEach(function(e){
+      h += '<tr' + (e.current ? ' class="current"' : '') + '><td class="mono">' + esc(e.v) + '</td><td>' +
+           esc(e.label) + (e.current ? '　← 目前值' : '') + '</td></tr>';
+    });
+    h += '</table></details>';
+  }
+  return h;
+}
+
+// ── 原始資料（hex dump + 暫存器對照）───────────────────────────────
+function renderHex(){
+  var p = S.payload;
+  if (!p.bin) {
+    return '<div class="empty"><div class="big">🔢</div><p>尚未載入 bin 檔。</p>' +
+           '<button class="btn-accent" onclick="importBin()">匯入 bin 檔</button></div>';
+  }
+  var diffMap = {};
+  p.registers.forEach(function(r){ diffMap[r.name] = (r.differs === true); });
+
+  var h = '<div class="toolbar"><span class="muted" style="font-size:12.5px">' +
+          '每格一個 32-bit word（little-endian 組回的值），下方標註對應的暫存器；點格子可跳到該暫存器。</span></div>';
+  if (p.hexdump.note) h += '<div class="banner">⚠ ' + esc(p.hexdump.note) + '</div>';
+  h += '<div class="table-wrap"><table class="hex-table"><thead><tr>' +
+       '<th>Offset</th><th>+0x0</th><th>+0x4</th><th>+0x8</th><th>+0xC</th></tr></thead><tbody>';
+  p.hexdump.rows.forEach(function(row){
+    h += '<tr><td class="hex-off">' + row.offset_hex + '</td>';
+    row.words.forEach(function(w){
+      var base = w.reg ? w.reg.replace(/ \[.*$/, '') : null;
+      var diff = base && diffMap[base];
+      h += '<td>';
+      if (w.partial) {
+        h += '<div class="hw-val muted">' + esc(w.hex) + '</div><div class="hw-reg">（不足一個 word）</div>';
+      } else if (base) {
+        h += '<div class="hexword" onclick="goReg(\'' + jsq(base) + '\')">' +
+             '<div class="hw-val' + (diff ? ' diff' : '') + '">' + esc(w.hex) + '</div>' +
+             '<div class="hw-reg">' + esc(w.reg) + (diff ? ' ・ ≠Reset' : '') + '</div></div>';
+      } else {
+        h += '<div class="hw-val muted">' + esc(w.hex) + '</div><div class="hw-reg">未對應</div>';
+      }
+      h += '</td>';
+    });
+    for (var i = row.words.length; i < 4; i++) h += '<td></td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+// ── Spec 管理 ──────────────────────────────────────────────────────
+function renderSpecs(){
+  var cur = S.payload ? S.payload.spec.id : null;
+  var h = '<div class="toolbar">' +
+          '<button class="btn-accent" onclick="addSpec()">載入外部 Spec（.md）</button>' +
+          '<button class="btn" onclick="reloadSpecs()">重新載入全部</button>' +
+          '</div>';
+  h += '<div class="banner info">內建 spec 打包在執行檔內；外部 spec 供測試新格式，' +
+       '修改 .md 存檔後按「重新載入全部」即可更新。格式說明見 repo 的 SPEC_FORMAT.md。</div>';
+  if (!S.specs.length) {
+    h += '<div class="empty"><div class="big">📚</div><p>沒有任何 spec</p></div>';
+    return h;
+  }
+  S.specs.forEach(function(s){
+    var isCur = s.id === cur;
+    h += '<div class="spec-card' + (isCur ? ' current' : '') + '">';
+    h += '<div class="spec-card-head">';
+    h += '<span class="spec-card-name">' + esc(s.display_name) + '</span>';
+    h += '<span class="chip ' + (s.origin === 'external' ? 'chip-ext' : 'chip-builtin') + '">' +
+         (s.origin === 'external' ? '外部' : '內建') + '</span>';
+    h += '<span class="chip chip-same">' + s.register_count + ' 個暫存器</span>';
+    if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個警告</span>';
+    if (isCur) h += '<span class="chip chip-diff">使用中</span>';
+    h += '<span class="spec-card-actions">';
+    if (!isCur) h += '<button class="btn" onclick="chooseSpec(\'' + jsq(s.id) + '\')">使用</button>';
+    if (s.origin === 'external') h += '<button class="btn" onclick="removeSpec(\'' + jsq(s.id) + '\')">移除</button>';
+    h += '</span></div>';
+    if (s.desc) h += '<div class="reg-desc" style="margin-top:6px">' + esc(s.desc) + '</div>';
+    if (s.origin === 'external' && s.path) h += '<div class="spec-card-path">' + esc(s.path) + '</div>';
+    if (s.warnings.length) {
+      h += '<details class="spec-warnings"><summary>解析警告（' + s.warnings.length + '）</summary><ul>';
+      s.warnings.forEach(function(w){ h += '<li>' + esc(w) + '</li>'; });
+      h += '</ul></details>';
+    }
+    h += '</div>';
+  });
+  return h;
+}
+</script>
+</body>
+</html>
+"""
+
+
+def build_main_html(theme_attr: str = "") -> str:
+    """組出最終 HTML：注入色票、主題屬性與版本號。
+
+    theme_attr: '' 或 'data-theme="dark"'（由 main.py 依 OS／設定決定）。
+    """
+    html = MAIN_HTML.replace("__THEME_ROOT_CSS__", THEME_ROOT_CSS)
+    html = html.replace("__html_theme_attr__", theme_attr)
+    html = html.replace("__APP_VERSION__", APP_VERSION)
+    return html
