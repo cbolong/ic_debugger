@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.analyzer import build_payload, spec_summary  # noqa: E402
+from core.analyzer import build_payload, spec_detail, spec_summary  # noqa: E402
 from core.bin_parser import load_bin  # noqa: E402
 from core.spec_loader import load_builtin_specs  # noqa: E402
 from core.version import APP_VERSION  # noqa: E402
@@ -33,6 +33,7 @@ def build_preview_html(theme_attr: str = "") -> str:
     init = {
         "specs": [spec_summary(s) for s in specs],
         "payload": build_payload(r5, binf),
+        "spec_detail": spec_detail(r5),
         "version": APP_VERSION,
     }
     blob = json.dumps(init, ensure_ascii=False).replace("</", "<\\/")
@@ -93,6 +94,14 @@ def main() -> int:
         page.click('[data-view="specs"]')
         page.wait_for_selector(".spec-card")
         shot("4_specs_light.png")
+
+        # Spec 全文：解析後與原始 Markdown 兩個分頁
+        page.click('[data-view="specdoc"]')
+        page.wait_for_selector(".doc-reg-head")
+        shot("8_specdoc_parsed_light.png")
+        page.click("text=原始 Markdown")
+        page.wait_for_selector(".rawspec")
+        shot("9_specdoc_raw_light.png")
 
         # 深色：按 🌓
         page.click(".theme-toggle")

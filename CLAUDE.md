@@ -53,6 +53,10 @@ tests/               pytest；CI 的品質關卡
 10. requirements 的 pythonnet／clr_loader／PyInstaller 版本 pin 是有前例的
     （見 requirements.txt 註解）：要動就兩個一起動，並用真的從 Releases
     下載的 exe 實測。
+11. **驗證追溯**：每個功能行為都在 VERIFICATION.md 有對應的驗證項目
+    （窮舉原則）。標「設計如此」的行為是刻意決策，不是 bug，禁止當錯誤
+    修掉；新增/變更行為必須同步加測試與追溯列。動手改任何行為之前先查
+    VERIFICATION.md 該行為是不是被鎖的設計。
 
 ## 常用指令
 

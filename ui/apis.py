@@ -19,7 +19,7 @@ import webview
 
 from app_config import save_config
 from app_state import AppState
-from core.analyzer import build_payload, spec_summary
+from core.analyzer import build_payload, spec_detail, spec_summary
 from core.bin_parser import BinError, load_bin
 from core.report import render_markdown
 from core.version import APP_VERSION
@@ -120,6 +120,15 @@ class Api:
                 return {"ok": False, "error": "只能移除外部 spec"}
             self._save_cfg()
             return self._snapshot()
+
+    def get_spec_detail(self, spec_id: str | None = None) -> dict:
+        """「Spec 全文」：完整解析內容＋原始 MD。spec_id 省略＝目前使用中的。"""
+        with self._lock:
+            sid = str(spec_id) if spec_id else self._state.current_id
+            spec = self._state.specs.get(sid) if sid else None
+            if spec is None:
+                return {"ok": False, "error": f"找不到 spec：{spec_id or '(目前未選擇)'}"}
+            return {"ok": True, "detail": spec_detail(spec)}
 
     def reload_specs(self) -> dict:
         with self._lock:

@@ -216,3 +216,25 @@ def test_report_markdown():
     assert "省電" in md
     only = render_markdown(payload, only_differs=True)
     assert "## CTRL" in only and "## STAT" not in only
+
+
+def test_report_escapes_pipe_in_enum_label():
+    """enum 意義文字可以含「|」；進 Markdown 表格必須跳脫，否則表格整個歪掉。"""
+    text = ("# CPU: T\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 1:0 | M |\n\n"
+            "### Enum: M\n- 0: 甲|乙 模式\n")
+    spec = parse_spec_text(text, "t")
+    payload = build_payload(spec, BinFile(path="x", name="x.bin", data=bytes(4)))
+    md = render_markdown(payload)
+    assert "甲\\|乙 模式" in md
+    assert "甲|乙" not in md.replace("甲\\|乙", "")
+
+
+def test_report_no_bin_and_no_diff_wording():
+    spec = _demo_spec()
+    browse = render_markdown(build_payload(spec, None))
+    assert "未載入" in browse and "## CTRL" in browse
+    # 全部等於 reset：only_differs 報告只剩表頭，不出現任何暫存器章節
+    data = (0x10).to_bytes(4, "little") + bytes(12)
+    only = render_markdown(build_payload(spec, BinFile(path="x", name="x.bin", data=data)),
+                           only_differs=True)
+    assert "## CTRL" not in only and "只列出與 Reset 不同" in only

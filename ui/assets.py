@@ -338,6 +338,28 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .spec-warnings summary { cursor: pointer; font-size: 12px; color: var(--c-warn-text); }
 .spec-warnings li { font-size: 12px; color: var(--c-warn-text); margin: 4px 0 0 18px; font-family: var(--font-mono); }
 
+/* ── Spec 全文 ── */
+.doc-head { margin-bottom: 16px; }
+.doc-meta { font-size: 12.5px; color: var(--c-text-muted); margin-top: 6px; line-height: 1.8; }
+.doc-meta b { color: var(--c-text); font-weight: 600; }
+.doc-reg-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; border-bottom: 1px solid var(--c-divider); background: var(--c-bg-softer);
+  border-radius: 12px 12px 0 0;
+}
+.doc-reg-name { font-family: var(--font-mono); font-weight: 700; font-size: 14.5px; }
+.doc-reg-meta { font-size: 12px; color: var(--c-text-muted); font-family: var(--font-mono); }
+.doc-reg-desc { font-size: 12.5px; color: var(--c-text-muted); padding: 8px 12px 0; }
+.rawspec {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px;
+  box-shadow: var(--c-elevate); padding: 16px 18px; overflow-x: auto;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.65;
+  white-space: pre; color: var(--c-text);
+  scrollbar-color: var(--c-scrollbar) transparent;
+}
+.enum-inline { width: auto; font-size: 12px; margin-top: 4px; }
+.enum-inline td { padding: 2px 12px 2px 0; border: none; color: var(--c-text-muted); }
+
 /* 空狀態 */
 .empty {
   text-align: center; padding: 48px 20px; color: var(--c-text-muted);
@@ -377,6 +399,7 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
     <button class="nav-item active" data-view="overview" onclick="nav('overview')">📊 總覽</button>
     <button class="nav-item" data-view="regs" onclick="nav('regs')">🧾 暫存器 <span class="nav-badge" id="navRegCount"></span></button>
     <button class="nav-item" data-view="hex" onclick="nav('hex')">🔢 原始資料</button>
+    <button class="nav-item" data-view="specdoc" onclick="openSpecDoc(null)">📖 Spec 全文</button>
     <div class="sidebar-section">設定</div>
     <button class="nav-item" data-view="specs" onclick="nav('specs')">📚 Spec 管理</button>
     <div class="sidebar-footer">IC Debugger v__APP_VERSION__</div>
@@ -399,6 +422,8 @@ var S = {
   q: '',
   onlyDiff: false,
   expanded: {},     // 暫存器名稱 → 是否展開
+  doc: null,        // Spec 全文檢視的內容（get_spec_detail 的 detail）
+  docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
 };
 
 function esc(s){
@@ -406,7 +431,7 @@ function esc(s){
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-// 嵌進 onclick="fn('…')" 單引號字串的跳脫（先處理 JS 字串層，再過 esc 處理 HTML 層）
+// 嵌進 inline handler 單引號字串的跳脫（先處理 JS 字串層，再過 esc 處理 HTML 層）
 function jsq(s){
   return esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
@@ -434,9 +459,10 @@ function api(name){
 function handle(resp, after){
   if (!resp || resp.cancelled) return;
   if (!resp.ok) { showToast(resp.error || '操作失敗', true); return; }
-  if (resp.specs) S.specs = resp.specs;
+  if (resp.specs) { S.specs = resp.specs; S.doc = null; }  // spec 集合變動 → 全文快取作廢
   if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
   renderAll();
+  if (S.view === 'specdoc' && !S.doc) openSpecDoc(null);   // 正在看全文就馬上重抓
   if (after) after(resp);
 }
 function apiFail(e){ if (e !== 'no-api') showToast('操作失敗：' + e, true); }
@@ -471,6 +497,25 @@ function exportReport(){
   }).catch(apiFail);
 }
 function nav(v){ S.view = v; renderAll(); }
+// 開啟「Spec 全文」：id=null 表示目前使用中的 spec；每張 spec 卡也有各自的按鈕
+function openSpecDoc(id){
+  S.view = 'specdoc';
+  var want = id || (S.payload ? S.payload.spec.id : null);
+  if (S.doc && S.doc.summary.id === want) { renderAll(); return; }
+  if (window.__PREVIEW__) {
+    var d = window.__PREVIEW__.spec_detail;
+    if (d && (!want || d.summary.id === want)) { S.doc = d; S.docTab = 'parsed'; }
+    renderAll(); return;
+  }
+  S.doc = null; renderAll();  // 先顯示載入中
+  api('get_spec_detail', id).then(function(r){
+    if (!r) return;
+    if (!r.ok) { showToast(r.error || '載入失敗', true); return; }
+    S.doc = r.detail; S.docTab = 'parsed';
+    renderAll();
+  }).catch(apiFail);
+}
+function setDocTab(t){ S.docTab = t; renderView(); }
 function setQuery(q){ S.q = q; renderView(); }
 function setOnlyDiff(v){ S.onlyDiff = v; renderView(); }
 function toggleReg(name){ S.expanded[name] = !S.expanded[name]; renderView(); }
@@ -559,7 +604,7 @@ function renderView(){
   var el = document.getElementById('view');
   // 重繪會換掉整個 innerHTML：先記住搜尋框是否持有焦點，繪完還回去
   var hadFocus = document.activeElement && document.activeElement.id === 'searchInput';
-  if (!S.payload && S.view !== 'specs') {
+  if (!S.payload && S.view !== 'specs' && !(S.view === 'specdoc' && S.doc)) {
     el.innerHTML = '<div class="empty"><div class="big">🕐</div><p>' +
       (S.inited ? '找不到任何 spec：請到「Spec 管理」載入' : '載入中…') + '</p></div>';
     return;
@@ -567,6 +612,7 @@ function renderView(){
   if (S.view === 'overview') el.innerHTML = renderOverview();
   else if (S.view === 'regs') el.innerHTML = renderRegs();
   else if (S.view === 'hex') el.innerHTML = renderHex();
+  else if (S.view === 'specdoc') el.innerHTML = renderSpecDoc();
   else el.innerHTML = renderSpecs();
   var q = document.getElementById('searchInput');
   if (q) {
@@ -710,7 +756,8 @@ function bitRuler(r, ri){
   return h + '</div>';
 }
 
-function fieldTable(r, ri){
+function fieldTable(r, ri, opts){
+  opts = opts || {};
   var hasVal = !!r.value_hex;
   var h = '<div class="table-wrap" style="margin-bottom:0"><table class="field-table"><thead><tr>' +
           '<th>Bits</th><th>欄位</th>' + (hasVal ? '<th>值</th>' : '') +
@@ -727,7 +774,7 @@ function fieldTable(r, ri){
       else if (f.value_dec && (f.msb - f.lsb + 1) > 4) sub = f.value_dec + ' (dec)';
       h += '<td class="mono">' + v + (sub ? '<br><span class="muted" style="font-size:11px">' + sub + '</span>' : '') + '</td>';
     }
-    h += '<td class="fmeaning">' + meaningCell(f) + '</td>';
+    h += '<td class="fmeaning">' + meaningCell(f, opts.expandEnums) + '</td>';
     h += '<td class="mono muted">' + esc(f.access || '') + '</td>';
     h += '<td class="mono muted">' + (f.reset_hex || '—') + '</td>';
     h += '</tr>';
@@ -735,7 +782,7 @@ function fieldTable(r, ri){
   return h + '</tbody></table></div>';
 }
 
-function meaningCell(f){
+function meaningCell(f, expandEnums){
   var h = '';
   if (f.enum_label) {
     h += '<b>' + esc(f.enum_label) + '</b>';
@@ -744,13 +791,77 @@ function meaningCell(f){
     h += esc(f.desc || '');
   }
   if (f.enum && f.enum.length) {
-    h += '<details class="enum-details"><summary>全部數值（' + f.enum.length + '）</summary><table class="enum-table">';
-    f.enum.forEach(function(e){
-      h += '<tr' + (e.current ? ' class="current"' : '') + '><td class="mono">' + esc(e.v) + '</td><td>' +
-           esc(e.label) + (e.current ? '　← 目前值' : '') + '</td></tr>';
-    });
-    h += '</table></details>';
+    if (expandEnums) {
+      // Spec 全文（稽核）模式：列舉全表直接攤開，方便逐項對照 TRM
+      h += '<table class="enum-inline">';
+      f.enum.forEach(function(e){
+        h += '<tr><td class="mono">' + esc(e.v) + '</td><td>' + esc(e.label) + '</td></tr>';
+      });
+      h += '</table>';
+    } else {
+      h += '<details class="enum-details"><summary>全部數值（' + f.enum.length + '）</summary><table class="enum-table">';
+      f.enum.forEach(function(e){
+        h += '<tr' + (e.current ? ' class="current"' : '') + '><td class="mono">' + esc(e.v) + '</td><td>' +
+             esc(e.label) + (e.current ? '　← 目前值' : '') + '</td></tr>';
+      });
+      h += '</table></details>';
+    }
   }
+  return h;
+}
+
+// ── Spec 全文（稽核目前依據的 spec 是否正確）───────────────────────
+function renderSpecDoc(){
+  if (!S.doc) {
+    return '<div class="empty"><div class="big">📖</div><p>載入 Spec 全文中…</p></div>';
+  }
+  var s = S.doc.summary;
+  var h = '<div class="doc-head card">';
+  h += '<div class="spec-card-head">';
+  h += '<span class="spec-card-name" style="font-size:16px">' + esc(s.display_name) + '</span>';
+  h += '<span class="chip ' + (s.origin === 'external' ? 'chip-ext' : 'chip-builtin') + '">' +
+       (s.origin === 'external' ? '外部載入' : '內建（隨 exe 打包）') + '</span>';
+  h += '<span class="chip chip-same">' + s.register_count + ' 個暫存器</span>';
+  if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個解析警告</span>';
+  h += '</div>';
+  h += '<div class="doc-meta">';
+  h += '本頁是軟體<b>實際依據</b>的 spec 內容（解析後），分析結果對不對、先從這裡查。';
+  if (s.source) h += '<br>來源文件：<b>' + esc(s.source) + '</b>';
+  if (s.path) h += '<br>檔案：<span class="mono">' + esc(s.path) + '</span>';
+  if (s.desc) h += '<br>' + esc(s.desc);
+  h += '</div>';
+  if (s.warnings.length) {
+    h += '<details class="spec-warnings"><summary>解析警告（' + s.warnings.length + '）—— 有警告代表下面的內容可能不完整</summary><ul>';
+    s.warnings.forEach(function(w){ h += '<li>' + esc(w) + '</li>'; });
+    h += '</ul></details>';
+  }
+  h += '</div>';
+
+  h += '<div class="toolbar"><div class="seg">' +
+       '<button class="' + (S.docTab === 'parsed' ? 'active' : '') + '" onclick="setDocTab(\'parsed\')">解析後內容（引擎實際使用）</button>' +
+       '<button class="' + (S.docTab === 'raw' ? 'active' : '') + '" onclick="setDocTab(\'raw\')">原始 Markdown</button>' +
+       '</div></div>';
+
+  if (S.docTab === 'raw') {
+    if (S.doc.raw == null) {
+      h += '<div class="banner">⚠ ' + esc(S.doc.raw_error || '無法取得原始檔') + '</div>';
+    } else {
+      h += '<div class="rawspec">' + esc(S.doc.raw) + '</div>';
+    }
+    return h;
+  }
+
+  S.doc.registers.forEach(function(r, ri){
+    h += '<div class="table-wrap">';
+    h += '<div class="doc-reg-head">';
+    h += '<span class="doc-reg-name">' + esc(r.name) + '</span>';
+    h += '<span class="doc-reg-meta">Offset ' + r.offset_hex + ' ・ ' + r.size + '-bit ・ Reset ' +
+         (r.reset_hex || '—（未知／依組態）') + '</span>';
+    h += '</div>';
+    if (r.desc) h += '<div class="doc-reg-desc">' + esc(r.desc) + '</div>';
+    h += fieldTable(r, 'doc' + ri, { expandEnums: true });
+    h += '</div>';
+  });
   return h;
 }
 
@@ -817,6 +928,7 @@ function renderSpecs(){
     if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個警告</span>';
     if (isCur) h += '<span class="chip chip-diff">使用中</span>';
     h += '<span class="spec-card-actions">';
+    h += '<button class="btn" onclick="openSpecDoc(\'' + jsq(s.id) + '\')">檢視全文</button>';
     if (!isCur) h += '<button class="btn" onclick="chooseSpec(\'' + jsq(s.id) + '\')">使用</button>';
     if (s.origin === 'external') h += '<button class="btn" onclick="removeSpec(\'' + jsq(s.id) + '\')">移除</button>';
     h += '</span></div>';

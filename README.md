@@ -45,4 +45,5 @@ push 到 `main` 即觸發 [auto-build](.github/workflows/auto-build.yml)：
 | 文件 | 內容 |
 |---|---|
 | [SPEC_FORMAT.md](SPEC_FORMAT.md) | Spec MD 格式契約＋給 AI 的產生指示範本 |
+| [VERIFICATION.md](VERIFICATION.md) | 功能 × 驗證追溯表（窮舉驗證）＋ Windows 實機檢查清單 |
 | [CLAUDE.md](CLAUDE.md) | 架構地圖、開發慣例與不變條件（AI 助手也讀這份） |

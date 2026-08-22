@@ -59,3 +59,77 @@ def test_js_syntax_with_node(tmp_path):
             encoding="utf-8", errors="replace",
         )
         assert r.returncode == 0, f"script #{i} JS 語法錯誤：\n{r.stderr}"
+
+
+# ════════════════════════════════════════════════════════════════════
+# 交叉引用窮舉：改名／刪函式把按鈕改壞，在這裡就會被抓，不用等點下去才死
+# ════════════════════════════════════════════════════════════════════
+
+def _declared_functions(html: str) -> set:
+    out = set()
+    for script in _scripts(html):
+        out.update(re.findall(r"\bfunction\s+([A-Za-z_]\w*)\s*\(", script))
+        out.update(re.findall(r"window\.(_\w+)\s*=\s*function", script))
+    return out
+
+
+def test_every_inline_handler_has_declared_function():
+    """HTML／模板字串裡每個 onclick／oninput／onchange 呼叫的函式都必須存在。"""
+    html = build_main_html("")
+    handlers = set(re.findall(r"on(?:click|input|change)=\\?\"([A-Za-z_]\w*)\s*\(", html))
+    declared = _declared_functions(html)
+    missing = handlers - declared
+    assert handlers, "應該要找得到 inline handler（找不到代表這個測試的 regex 壞了）"
+    assert not missing, f"這些 handler 沒有對應的函式定義：{missing}"
+
+
+def test_every_getelementbyid_target_exists():
+    """JS 引用的靜態元素 id 必須存在於 HTML（動態產生的 id 逐一列管）。"""
+    html = build_main_html("")
+    used = set(re.findall(r"getElementById\('([\w-]+)'\)", html))
+    static_ids = set(re.findall(r'id="([\w-]+)"', html))
+    # 這些 id 是 JS 動態 render 出來的，驗它們的產生程式碼存在
+    dynamic = {"searchInput"}
+    for d in dynamic & used:
+        assert f'id="{d}"' in html or f"id='{d}'" in html or (d + '"') in html, d
+    missing = used - static_ids - dynamic - {p for p in used if p.startswith(("reg-", "ft-"))}
+    assert not missing, f"JS 引用了不存在的靜態 id：{missing}"
+
+
+def test_all_views_have_render_branch_and_nav_entry():
+    html = build_main_html("")
+    views_in_nav = set(re.findall(r'data-view="(\w+)"', html))
+    assert views_in_nav == {"overview", "regs", "hex", "specdoc", "specs"}
+    body = _scripts(html)[1]
+    for v in views_in_nav:
+        assert f"'{v}'" in body, f"renderView 缺少 {v} 的分支或入口"
+
+
+def test_every_used_css_token_is_defined_in_light_root():
+    """CSS/JS 用到的每個 var(--c-*) 都必須在淺色 :root 有定義：
+    打錯 token 名不會有任何錯誤訊息，顏色只會靜默消失 —— 用這條測試抓。"""
+    html = build_main_html("")
+    used = set(re.findall(r"var\(\s*(--c-[a-z-]+)", html))
+    light_root = THEME_ROOT_CSS.split("@media")[0]
+    defined = set(re.findall(r"(--c-[a-z-]+)\s*:", light_root))
+    missing = used - defined
+    assert used, "抓不到任何 var(--c-*)，測試 regex 壞了"
+    assert not missing, f"這些 token 有使用但淺色沒定義：{missing}"
+
+
+def test_api_methods_called_from_js_exist_in_python():
+    """JS 透過 api('name', …) 呼叫的每個方法都必須存在於 ui/apis.py 的 Api。
+    （反向不強制：Python 多提供方法無妨。）"""
+    import ast
+    from pathlib import Path
+
+    html = build_main_html("")
+    called = set(re.findall(r"api\('(\w+)'", html))
+    called |= set(re.findall(r"pywebview\.api\.(\w+)\s*\(", html))
+    src = (Path(__file__).resolve().parent.parent / "ui" / "apis.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    api_cls = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == "Api")
+    methods = {n.name for n in api_cls.body if isinstance(n, ast.FunctionDef)}
+    missing = called - methods
+    assert called, "抓不到任何 api() 呼叫，測試 regex 壞了"
+    assert not missing, f"JS 呼叫了 Api 沒有的方法：{missing}"

@@ -233,6 +233,33 @@ def spec_summary(spec: Spec) -> dict:
     }
 
 
+def spec_detail(spec: Spec) -> dict:
+    """「Spec 全文」檢視用：完整解析結果（無 bin 值）＋原始 Markdown 原文。
+
+    目的：讓使用者稽核「軟體實際依據的 spec」對不對 —— 解析後內容是引擎
+    真正使用的資料，原文則供與 TRM 逐字比對。原文從 spec.path 重新讀
+    （內建＝exe 解壓目錄、外部＝使用者的檔案）；讀不到時 raw=None 並附原因，
+    解析內容照樣可看。
+    """
+    payload = build_payload(spec, None)
+    raw: str | None = None
+    raw_error: str | None = None
+    if spec.path:
+        try:
+            from pathlib import Path
+            raw = Path(spec.path).read_text(encoding="utf-8-sig")
+        except OSError as e:
+            raw_error = f"無法讀取原始檔：{e}"
+    else:
+        raw_error = "此 spec 不是從檔案載入，沒有原始檔可顯示"
+    return {
+        "summary": payload["spec"],
+        "registers": payload["registers"],
+        "raw": raw,
+        "raw_error": raw_error,
+    }
+
+
 def build_payload(spec: Spec, binf: BinFile | None) -> dict:
     regs = sorted(spec.registers, key=lambda r: r.offset)
     data = binf.data if binf is not None else None

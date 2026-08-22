@@ -1,0 +1,118 @@
+# VERIFICATION.md — 功能 × 驗證追溯表
+
+每一個功能行為都對應到可重跑的驗證項目。目的有二：
+1. **抓回歸**：任何人（含 AI）改壞既有行為，`pytest` 就紅。
+2. **保護設計**：表中標註「**設計如此**」的行為是刻意決策，不是 bug ——
+   之後不准當成錯誤「修掉」；要改必須先改這份文件與對應測試。
+
+**窮舉原則**：可有限窮舉的軸（位元範圍組合、截斷長度、警告分支、格式變體、
+真值表）一律全數列舉；無限的輸入空間則列出等價類並以「與實作不同演算法的
+參考實作」暴力對照（隨機種子固定，結果可重現）。
+
+執行方式：`PYTHONPATH=. pytest tests/ -q` —— CI（auto-build.yml）在每次
+打包前強制全綠，測試不過就不會產生 Release。
+
+## 1. 位元運算（所有數字呈現的地基）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| `extract(v, msb, lsb)` 取欄位值 | test_exhaustive_bits.py::test_extract_all_ranges_32bit / _64bit_boundaries | 32-bit：**全部 528 種 (msb,lsb) 組合**×6 種 pattern＋單邊界值；64-bit：全部 2080 種組合×5 pattern；參考答案用二進位字串切片（獨立演算法） |
+| 欄位完整分割可重組原值（無位移偏差） | ::test_extract_field_partition_reconstructs_value | 32/64-bit 各 100 組隨機分割×5 值（seed 固定） |
+| hex 呈現：固定寬度、大寫、>32-bit 每 8 位底線 | ::test_fmt_hex_all_widths_roundtrip / _documented_examples | **寬度 1–64 全部**×5 邊界值，驗可逆、位數、底線位置 |
+| bin 呈現：0b 前綴、由 LSB 每 4 位分組 | ::test_fmt_bin_all_widths_roundtrip / _documented_examples | **寬度 1–64 全部**×4 邊界值 |
+| 值一律以字串過 JS bridge（**設計如此**：64-bit 過 JS Number 會掉精度） | test_analyzer.py::test_payload_decode_and_differs（0x1_00000000 案例）＋ CLAUDE.md 不變條件 2 | 64-bit 邊界值 |
+
+## 2. Spec MD 解析（spec_loader）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| 數值格式：0x／0b／十進位／底線／空白 | test_exhaustive_spec_loader.py::test_parse_int_exhaustive_table | **26 種輸入寫法全表**（含 -、?、—、N/A、TBD → None；**設計如此**：未知不是錯誤） |
+| Bits 寫法：`31:24`、`31-24`、`31~24`、`[31:24]`、單一位元、**寫反自動轉正（設計如此）** | ::test_bits_syntax_exhaustive | 10 種合法寫法＋8 種非法寫法（非法→整列略過＋警告） |
+| 表頭別名（中英文，**設計如此**：容錯 AI 產出） | ::test_table_header_aliases_exhaustive | **5 組欄位×全部 26 個別名逐一驗證** |
+| 全形冒號／CRLF／BOM／markdown 行內標記／HTML 註解／散文行 | ::test_fullwidth_colon_everywhere、_crlf_…、_bom_via_file、_html_comments_… | 每種容錯各一組，合法輸入必須**零警告** |
+| 寬度：檔頭 Width 8/16/32/64、暫存器 Size 覆寫 | ::test_size_64_field_to_63_and_widths、_register_level_size_override | 4 種寬度全跑 |
+| Enum 掛到欄位、同名欄位全掛（**設計如此**）、Enum 後接屬性行不誤吞 | ::test_enum_attaches_to_all_…、_enum_then_register_attr_not_swallowed | 邊界案例逐一 |
+| 暫存器依 Offset 排序、欄位依 msb 排序（非文件順序，**設計如此**） | ::test_registers_sorted_…、_fields_sorted_… | 亂序輸入 |
+| **全部 22 條警告分支**：訊息內容＋降級行為（略過該列/該暫存器，不毀整份 spec） | ::test_every_warning_branch（parametrize 22 案例）＋ _file_read_error_… | **警告分支逐條窮舉**，含行號驗證（_warning_carries_line_number） |
+| 合法輸入零多餘警告（防警告通膨） | ::test_clean_specs_have_zero_warnings、test_spec_loader.py::test_builtin_specs_parse_clean | 內建 spec 全檔 |
+| **內建 spec 必須解析零警告**（CI 品質關卡） | test_spec_loader.py::test_builtin_specs_parse_clean | specs/ 目錄全部檔案 |
+
+## 3. bin 解析與對應（bin_parser）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| little-endian、Offset=檔內位移（**與使用者確認的契約**） | test_exhaustive_analyzer.py::test_word_at_exhaustive_small_buffer、test_analyzer.py::test_word_at_little_endian | 12-byte buffer 內**全部 offset（含負值與越界）× 4 種寬度**，與 int.from_bytes 對照 |
+| 空檔／超大檔擋下、訊息可讀 | test_analyzer.py::test_load_bin_errors | 各錯誤路徑 |
+
+## 4. 解碼引擎（analyzer）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| covered／partial（截斷）判定 | test_exhaustive_analyzer.py::test_truncation_sweep_every_length | 16-byte spec（32/64 混合）**bin 長度 0–18 每個長度全驗**，含統計一致性與 hexdump note 三態 |
+| differs 判定（值/Reset 已知未知的所有組合；**設計如此**：全未知＝「無基準」None 而非 False；欄位 Reset 明寫優先於推導） | ::test_differs_truth_table、_differs_none_when_bin_absent_or_uncovered | **8 格真值表逐格**＋無 bin/未涵蓋 |
+| 欄位 Reset 從暫存器 Reset 自動推導（**設計如此**：表格可少抄） | 同上（真值表 3、4 列） | — |
+| 未定義位元自動補列 | ::test_uncovered_ranges_vs_bruteforce_random_layouts | 32/64-bit 各 150 組隨機佈局，與 set 補集暴力對照＋不相鄰驗證 |
+| rows 完整分割不變條件（bit ruler／欄位表的前提） | ::test_rows_always_partition_register_exactly | 32/64-bit 各 60 組隨機佈局：覆蓋全部 bit、無重疊、msb 降冪 |
+| 未定義位元非 0 提示 | ::test_nonzero_undef_flag | 0／非 0 兩態 |
+| enum：目前值標記與缺項行為（值不在表 → 無 label、無 current） | ::test_enum_current_marking_full_domain | 2-bit 欄位**值域 0–3 全窮舉**（含刻意缺 0b11） |
+| hexdump：逐 word 對應（32/64/空洞）、LE 組值、檔尾不足一 word | ::test_hexdump_annotation_with_gap_and_64bit、_hexdump_value_matches_le_word、test_analyzer.py::test_hexdump_annotation | 混合佈局逐 word 斷言 |
+| 範例 bin × 範例 spec 端到端 | test_analyzer.py::test_sample_bin_against_r5_spec | SCTLR/DFSR 等關鍵解碼逐項 |
+
+## 5. Spec 全文檢視（稽核用）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| 原始 MD 一字不差回傳（**設計如此**：稽核要能對 TRM 原文） | test_exhaustive_analyzer.py::test_spec_detail_builtin_raw_matches_file | 內建 R5 全文比對 |
+| 檔案消失／無路徑時降級（解析內容仍可看） | ::test_spec_detail_missing_file_degrades、_no_path | 兩種失效路徑 |
+| 全文模式無值（純 spec，不混入 bin 資料） | ::test_spec_detail_builtin_raw_matches_file | 全暫存器斷言 |
+
+## 6. App 狀態（spec 集合管理）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| 內建載入、last_spec 記憶、預設選第一個 | test_app_state.py::test_load_builtin_…、_last_spec_restored | — |
+| 外部 spec 加入/移除/重載、內建不可移除、同名衝突加 `~2` 後綴（**設計如此**） | ::test_add_and_remove_external、_external_id_collision_…、_reload_keeps_external | 各狀態轉移 |
+
+## 7. UI（HTML/CSS/JS 靜態保證）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| 佔位符全部替換、主題屬性正確 | test_ui.py::test_no_leftover_placeholders、_light_theme_attr_empty | 4 個佔位符 |
+| 深色 tokens ⊆ 淺色 tokens（單一色票來源） | ::test_theme_tokens_complete | 全 token 集合比對 |
+| **用到的每個 var(--c-\*) 都有定義**（打錯 token 名顏色會靜默消失） | ::test_every_used_css_token_is_defined_in_light_root | HTML/CSS/JS 全文掃描 |
+| **每個 inline handler 都有對應函式**（改名/刪函式把按鈕改壞在此被抓） | ::test_every_inline_handler_has_declared_function | 全部 onclick/oninput/onchange |
+| JS 引用的靜態元素 id 都存在 | ::test_every_getelementbyid_target_exists | 全部 getElementById |
+| 五個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/hex/specdoc/specs |
+| **JS 呼叫的每個 api 方法都存在於 Python Api**（橋接兩端同步） | ::test_api_methods_called_from_js_exist_in_python | 全部 api() 呼叫 × AST 解析 Api 類 |
+| Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
+| 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 9 張截圖） | overview/regs(展開)/hex/specs/specdoc(解析後+原文)×兩主題 |
+
+## 8. 報告匯出
+
+| 行為 | 驗證 |
+|---|---|
+| 標題/統計/enum 意義進報告、only_differs 過濾 | test_analyzer.py::test_report_markdown |
+| 表格 cell 的「\|」跳脫（enum 意義可含直線） | ::test_report_escapes_pipe_in_enum_label |
+| 無 bin 措辭、零差異時 only_differs 為空表 | ::test_report_no_bin_and_no_diff_wording |
+
+## 9. 無法自動化的部分 —— Windows 實機檢查清單
+
+pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機驗。
+**每次 Release 後抽最新 exe 跑一遍：**
+
+1. 從 Releases 下載 `IC_Debugger.exe` 雙擊（SmartScreen →「仍要執行」）→ 視窗開啟、無白畫面。
+2. 右上角切換 spec（R5 ↔ N25）→ 暫存器清單跟著換。
+3. 「匯入 bin」選 `examples/sample_r5.bin` → 總覽顯示 12/12、2 個 ≠Reset（SCTLR、CPACR）。
+4. 展開 SCTLR → bit ruler 顯示 M/C/Z/I/BR 藍色高亮；DFSR 的 FS 顯示「對齊（alignment）fault」。
+5. 🌓 切深色 → 關掉重開 exe → 仍是深色（設定記憶）。
+6. 「Spec 全文」→ 兩個分頁都有內容；「原始 Markdown」與 repo 檔案一致。
+7. 「Spec 管理 → 載入外部 Spec」選任一 .md → 出現在清單；「移除」正常。
+8. 「匯出報告 (.md)」→ 檔案打得開、內容與畫面一致。
+9. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
+
+## 10. 新增功能的規則
+
+新功能（或行為變更）**必須**：
+1. 在本檔加追溯列（含窮舉範圍說明）；
+2. 加對應測試（能窮舉就窮舉）；
+3. 刻意的取捨標「設計如此」並寫理由 —— 這是防止之後被誤修的鎖。
