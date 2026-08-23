@@ -57,6 +57,16 @@ tests/               pytest；CI 的品質關卡
     （窮舉原則）。標「設計如此」的行為是刻意決策，不是 bug，禁止當錯誤
     修掉；新增/變更行為必須同步加測試與追溯列。動手改任何行為之前先查
     VERIFICATION.md 該行為是不是被鎖的設計。
+12. **共用原則（防改 A 壞 B）**：同一種資訊只准有一份程式在算/在畫。
+    現有的單一來源：解碼＝`_register_dict`（bin 分析、Spec 全文疊值、
+    快速反查三條路都走它）、暫存器完整呈現＝JS `registerBlock()`、
+    狀態 chip＝`statusChipHtml()`、欄位表＝`fieldTable()`、數值格式
+    ＝`fmt_hex`/`fmt_bin`、數值解析＝`parse_int`。新功能要先找有沒有
+    現成的可掛，不准為同一件事再寫第二支 function；真的要分岔就加
+    參數，並讓測試鎖住兩條路輸出一致（如 test_lookup_identical_to_bin_path）。
+13. **系統列語意（使用者指定）**：「縮小」→ 縮到系統列（tray），
+    「X」→ 真正關閉。與 ic-monitor 的行為相反，不要照 ic-monitor 改回去。
+    tray 不可用（pystray 缺席）時縮小維持一般行為，不得擋啟動。
 
 ## 常用指令
 

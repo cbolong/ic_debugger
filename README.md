@@ -21,6 +21,8 @@ register 值（raw bin）匯入後，依內建的 CPU spec 自動解碼每一個
    結果帶去寫 issue。
 4. 只想查一兩個暫存器？用「**快速反查**」：輸入暫存器名稱（或 offset）＋
    讀到的值，立即解碼，免做 bin 檔。
+5. 視窗按「縮小」會收到**右下角系統列**（雙擊圖示叫回來）；按「X」才是
+   真正關閉。與 Reset 相同的保留位元預設收合，按「顯示保留位」展開。
 
 **bin 檔格式約定**：純 raw dump、little-endian，從 spec 的第一個暫存器
 （Offset 0x000）開始依序排列；每個暫存器佔 Size/8 bytes（預設 32-bit＝4 bytes）。

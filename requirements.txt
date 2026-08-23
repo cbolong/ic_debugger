@@ -8,6 +8,10 @@ pywebview>=5.0.0
 pythonnet==3.1.0; sys_platform == 'win32'
 clr_loader==0.3.1; sys_platform == 'win32'
 
+# 系統列圖示（縮小→縮到系統列；X→關閉）。pystray 需要 Pillow 載入圖示。
+pystray>=0.19.0; sys_platform == 'win32'
+Pillow>=9.0.0; sys_platform == 'win32'
+
 # 開發／CI 工具（非執行期相依）：
 #   pip install "pyinstaller>=6,<7" pytest      # 打包與測試
 #   pip install pillow                          # 只有重畫 icon（create_icon.py）才需要

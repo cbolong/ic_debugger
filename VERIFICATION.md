@@ -101,6 +101,8 @@
 | 六個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/lookup/hex/specdoc/specs |
 | **JS 呼叫的每個 api 方法都存在於 Python Api**（橋接兩端同步） | ::test_api_methods_called_from_js_exist_in_python | 全部 api() 呼叫 × AST 解析 Api 類 |
 | Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
+| 保留位降噪：與 Reset 相同的保留／未定義列預設隱藏；**值≠Reset 或未定義非 0 的保留位強制顯示**（**設計如此**：安全網，不准藏掉異常）；隱藏數提示列可點擊展開；bit ruler 永遠顯示全部位元；**Spec 全文不套用隱藏**（稽核要完整，**設計如此**） | tools/preview.py 截圖＋第 10 節人工清單 | 展開 SCTLR 目視（14 個安靜保留位收起、藍色異常位保留） |
+| 渲染共用（防改 A 壞 B）：暫存器展開與快速反查共用 registerBlock()；狀態 chip 共用 statusChipHtml()（**設計如此**：同一資訊只准一份渲染程式，見 CLAUDE.md 不變條件 12） | 程式結構＋test_every_inline_handler_…（改名即紅） | — |
 | 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 10 張截圖） | overview/regs(展開)/lookup/hex/specs/specdoc(解析後+原文)×兩主題 |
 
 ## 9. 報告匯出
@@ -125,7 +127,9 @@ pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機�
 7. 「快速反查」輸入 SCTLR＋0x00C7187D → 解碼結果與第 3 步展開的 SCTLR 完全相同；輸入 0xFF（超範圍 offset）→ 出現涵蓋範圍錯誤訊息。
 8. 「Spec 管理 → 載入外部 Spec」選任一 .md → 出現在清單；「移除」正常。
 9. 「匯出報告 (.md)」→ 檔案打得開、內容與畫面一致。
-10. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
+10. 展開 SCTLR →「與 Reset 相同的保留位」預設收起（有「已隱藏 N 個…」提示列，點擊或按工具列「顯示保留位」展開）；點 bit ruler 上被隱藏的保留位 → 自動展開並跳到該列。
+11. **系統列**：按「縮小」→ 視窗從工作列消失、右下角系統列出現晶片圖示（首次附提示气泡）；**雙擊圖示**或右鍵「開啟 IC Debugger」→ 視窗回來；右鍵「結束」→ 程式關閉。按「X」→ 程式真正關閉，且系統列圖示消失、工作管理員無殘留程序。
+12. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
 
 ## 11. 新增功能的規則
 

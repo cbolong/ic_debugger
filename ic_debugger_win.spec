@@ -13,6 +13,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('specs', 'specs'),
+        ('icon.png', '.'),   # 系統列圖示（ui/tray.py 經 resource_dir() 讀取）
     ],
     hiddenimports=[
         # pywebview 的 Windows 後端是動態 import，Analysis 掃不到
@@ -20,6 +21,7 @@ a = Analysis(
         'webview.platforms.winforms',
         'clr_loader',
         'pythonnet',
+        'pystray._win32',    # pystray 的平台後端也是動態 import
     ],
     hookspath=[],
     hooksconfig={},
