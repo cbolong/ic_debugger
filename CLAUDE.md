@@ -21,7 +21,9 @@ core/
 ui/
   assets.py          唯一的 UI 文件：THEME_ROOT_CSS tokens ＋ MAIN_HTML（HTML/CSS/JS）
   apis.py            pywebview js_api bridge（唯一 import webview 的模組之一）
-specs/               內建 CPU spec（打包進 exe）；格式見 SPEC_FORMAT.md
+specs/<廠商>/<型號>.md  內建 CPU spec（打包進 exe），子資料夾＝UI 廠商分組；
+                     目前：arm/cortex_r5、arm/cortex_a55、andes/n25、andes/n45
+                     格式見 SPEC_FORMAT.md，維護規則見 specs/README.md
 tools/               preview.py（免 GUI 渲染＋截圖）、make_sample_bin.py
 tests/               pytest；CI 的品質關卡
 ```
@@ -39,8 +41,12 @@ tests/               pytest；CI 的品質關卡
 4. **MAIN_HTML 是 raw string**（r\"\"\"）夾 JS：改動後靠
    `tests/test_ui.py` 的 node --check 驗語法，佔位符（`__THEME_ROOT_CSS__`／
    `__html_theme_attr__`／`__APP_VERSION__`）只能在 `build_main_html()` 替換。
-5. **內建 spec 必須解析零警告**（test_builtin_specs_parse_clean）。改
-   spec_loader 的警告文字時同步看測試斷言。
+5. **內建 spec 必須解析零警告**（test_builtin_specs_parse_clean），且每份都要有
+   `# Status:` 與 `# Source:`（test_all_four_builtin_cpus_present_and_clean）。
+   改 spec_loader 的警告文字時同步看測試斷言。
+   **spec 內容的紅線**：不確定的值一律寫 `-`，實作定義暫存器在沒有原廠文件前
+   只能留在檔尾 HTML 註解的待補清單，不准憑印象填進表格 —— 寫錯的 spec 會讓
+   分析結果整個錯，比沒有 spec 更危險。
 6. **bin 格式契約**：純 raw dump、little-endian、spec 的 Offset＝bin 位元組
    位移（從 0 起）。改這個契約要先跟使用者確認，並同步 SPEC_FORMAT.md 與 README。
 7. **WebView2 不回報 OS 深色**到 prefers-color-scheme：深色是 Python 偵測後

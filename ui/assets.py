@@ -338,6 +338,11 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .spec-card-name { font-weight: 600; font-size: 14px; }
 .spec-card-path { font-size: 11px; color: var(--c-text-muted); font-family: var(--font-mono); margin-top: 4px; word-break: break-all; }
 .spec-card-actions { margin-left: auto; display: flex; gap: 8px; }
+.spec-status {
+  margin-top: 6px; font-size: 12px; color: var(--c-warn-text);
+  background: var(--c-warn-bg); border: 1px solid var(--c-warn-border);
+  border-radius: 8px; padding: 5px 9px; display: inline-block;
+}
 .spec-warnings { margin-top: 8px; }
 .spec-warnings summary { cursor: pointer; font-size: 12px; color: var(--c-warn-text); }
 .spec-warnings li { font-size: 12px; color: var(--c-warn-text); margin: 4px 0 0 18px; font-family: var(--font-mono); }
@@ -596,6 +601,25 @@ function visibleRegs(){
 
 function cssId(s){ return String(s).replace(/[^A-Za-z0-9_-]/g, '_'); }
 
+// 廠商顯示名與分組：下拉選單與「Spec 管理」共用這兩支（不准各分各的）
+var VENDOR_LABELS = { arm: 'ARM', andes: 'Andes', riscv: 'RISC-V', 'intel': 'Intel' };
+function vendorLabel(v){
+  if (!v) return '其他';
+  return VENDOR_LABELS[String(v).toLowerCase()] || String(v).toUpperCase();
+}
+// 回傳 [[廠商標籤, [spec…]], …]，順序＝specs 陣列裡第一次出現的順序（＝檔案系統排序）
+function groupSpecsByVendor(specs){
+  var order = [], map = {};
+  specs.forEach(function(s){
+    var key = s.origin === 'external' ? '__ext__' : (s.vendor || '');
+    if (!(key in map)) { map[key] = []; order.push(key); }
+    map[key].push(s);
+  });
+  return order.map(function(k){
+    return [k === '__ext__' ? '外部載入' : vendorLabel(k), map[k]];
+  });
+}
+
 // 狀態 chip 的唯一渲染來源（暫存器清單、反查歷史都用這支——不准各寫各的）
 // always=false：沒載入 bin 時不顯示（spec 閱讀模式沒有「狀態」可言）
 function statusChipHtml(r, always){
@@ -618,9 +642,10 @@ function renderAll(){
     : '未載入 bin（spec 閱讀模式）';
 
   var sel = document.getElementById('specSelect');
-  sel.innerHTML = S.specs.map(function(s){
-    return '<option value="' + esc(s.id) + '">' + esc(s.display_name) +
-           (s.origin === 'external' ? '（外部）' : '') + '</option>';
+  sel.innerHTML = groupSpecsByVendor(S.specs).map(function(g){
+    return '<optgroup label="' + esc(g[0]) + '">' + g[1].map(function(s){
+      return '<option value="' + esc(s.id) + '">' + esc(s.display_name) + '</option>';
+    }).join('') + '</optgroup>';
   }).join('');
   if (S.payload) sel.value = S.payload.spec.id;
 
@@ -889,6 +914,7 @@ function renderSpecDoc(){
   h += overlaid
     ? '目前已載入 bin，下方同頁疊上<b>目前值</b>（藍色＝與 Reset 不同）。'
     : '載入 bin 後，本頁會同頁疊上目前值（僅目前使用中的 spec）。';
+  if (s.status) h += '<br>查核狀態：<b>' + esc(s.status) + '</b>';
   if (s.source) h += '<br>來源文件：<b>' + esc(s.source) + '</b>';
   if (s.path) h += '<br>檔案：<span class="mono">' + esc(s.path) + '</span>';
   if (s.desc) h += '<br>' + esc(s.desc);
@@ -1067,7 +1093,16 @@ function renderSpecs(){
     h += '<div class="empty"><div class="big">📚</div><p>沒有任何 spec</p></div>';
     return h;
   }
-  S.specs.forEach(function(s){
+  groupSpecsByVendor(S.specs).forEach(function(g){
+    h += '<div class="section-title">' + esc(g[0]) + ' <span class="muted">(' + g[1].length + ')</span></div>';
+    g[1].forEach(function(s){ h += specCard(s, cur); });
+  });
+  return h;
+}
+
+function specCard(s, cur){
+  var h = '';
+  {
     var isCur = s.id === cur;
     h += '<div class="spec-card' + (isCur ? ' current' : '') + '">';
     h += '<div class="spec-card-head">';
@@ -1082,6 +1117,7 @@ function renderSpecs(){
     if (!isCur) h += '<button class="btn" onclick="chooseSpec(\'' + jsq(s.id) + '\')">使用</button>';
     if (s.origin === 'external') h += '<button class="btn" onclick="removeSpec(\'' + jsq(s.id) + '\')">移除</button>';
     h += '</span></div>';
+    if (s.status) h += '<div class="spec-status">查核狀態：' + esc(s.status) + '</div>';
     if (s.desc) h += '<div class="reg-desc" style="margin-top:6px">' + esc(s.desc) + '</div>';
     if (s.origin === 'external' && s.path) h += '<div class="spec-card-path">' + esc(s.path) + '</div>';
     if (s.warnings.length) {
@@ -1090,7 +1126,7 @@ function renderSpecs(){
       h += '</ul></details>';
     }
     h += '</div>';
-  });
+  }
   return h;
 }
 </script>

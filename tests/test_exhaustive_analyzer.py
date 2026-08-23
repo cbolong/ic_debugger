@@ -259,12 +259,12 @@ def test_hexdump_value_matches_le_word():
 # ════════════════════════════════════════════════════════════════════
 
 def test_spec_detail_builtin_raw_matches_file():
-    path = ROOT / "specs" / "arm_cortex_r5.md"
+    path = ROOT / "specs" / "arm" / "cortex_r5.md"
     detail = spec_detail(load_spec_file(path))
-    assert detail["summary"]["id"] == "arm_cortex_r5"
+    assert detail["summary"]["id"] == "cortex_r5"
     assert detail["raw"] == path.read_text(encoding="utf-8-sig")  # 原文一字不差
     assert detail["raw_error"] is None
-    assert len(detail["registers"]) == detail["summary"]["register_count"] == 12
+    assert len(detail["registers"]) == detail["summary"]["register_count"] == 17
     # 全文模式沒有 bin：不得出現任何值
     assert all(r["value_hex"] is None for r in detail["registers"])
 
@@ -288,7 +288,7 @@ def test_spec_detail_no_path():
 def test_spec_detail_with_bin_overlays_values():
     """Spec 全文疊值：傳入 binf 時，值與 differs 必須與暫存器頁（build_payload）
     完全一致 —— 兩頁共用同一解碼來源，不允許各算各的（設計如此）。"""
-    spec = load_spec_file(ROOT / "specs" / "arm_cortex_r5.md")
+    spec = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
     from core.bin_parser import load_bin
     binf = load_bin(ROOT / "examples" / "sample_r5.bin")
     detail = spec_detail(spec, binf)
@@ -298,4 +298,4 @@ def test_spec_detail_with_bin_overlays_values():
     assert got == want
     assert any(v is not None for _, v, _ in got)  # 確實有值
     # 原文照舊、不受 bin 影響
-    assert detail["raw"] == (ROOT / "specs" / "arm_cortex_r5.md").read_text(encoding="utf-8-sig")
+    assert detail["raw"] == (ROOT / "specs" / "arm" / "cortex_r5.md").read_text(encoding="utf-8-sig")

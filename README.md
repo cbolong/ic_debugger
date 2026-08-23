@@ -4,9 +4,17 @@ CPU register dump 分析工具（Windows 桌面程式）。把 debugger dump 出
 register 值（raw bin）匯入後，依內建的 CPU spec 自動解碼每一個暫存器：
 名稱、目前值、每個 bit field 的意義、與 reset 值的差異 —— 不用再翻 spec PDF。
 
-支援多份 CPU spec（ARM Cortex-R5／Cortex-A55、Andes N45／N25…），在畫面
-右上角下拉切換；spec 以 Markdown 檔維護在 [`specs/`](specs/)，push 後由 CI
-自動打包出新的 exe。
+內建四顆 CPU 的 spec，在畫面右上角依廠商分組切換：
+
+| 廠商 | 型號 | 內容 |
+|---|---|---|
+| ARM | Cortex-R5 | ARMv7-R CP15 系統控制、故障狀態、MPU 區域暫存器 |
+| ARM | Cortex-A55 | ARMv8.2-A AArch64 EL1 系統暫存器（64-bit） |
+| Andes | N25 | RISC-V RV32 標準機器模式 CSR |
+| Andes | N45 | RISC-V RV32 標準機器模式 CSR |
+
+spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自動打包出新的 exe。
+每份 spec 都標了 `Status`（哪些欄位已核對原廠文件、哪些待補），app 內直接看得到。
 
 **下載**：到 [Releases](../../releases) 抓最新 `build-*` 的 `IC_Debugger.exe`，
 單一執行檔，下載後直接執行。
@@ -29,10 +37,11 @@ register 值（raw bin）匯入後，依內建的 CPU spec 自動解碼每一個
 
 ## 新增／更新 CPU spec
 
-1. 依 [SPEC_FORMAT.md](SPEC_FORMAT.md) 的格式寫一份 `xxx.md`
-   （可把該文件內附的指示範本連同 spec 原文交給 AI 產生）。
+1. 依 [SPEC_FORMAT.md](SPEC_FORMAT.md) 的格式寫一份 `specs/<廠商>/<型號>.md`
+   （可把該文件內附的指示範本連同 spec 原文交給 AI 產生；目錄規則見
+   [specs/README.md](specs/README.md)）。
 2. 先在 app 內「Spec 管理 → 載入外部 Spec」載入測試，把解析警告清乾淨。
-3. 放進 `specs/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
+3. 放進 `specs/<廠商>/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
 
 ## 開發快速上手
 

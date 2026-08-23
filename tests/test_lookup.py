@@ -171,7 +171,7 @@ def test_lookup_identical_to_bin_path():
 
 def test_lookup_r5_sample_case():
     """端到端：R5 spec 反查 SCTLR=0x00C7187D，須解出與範例 bin 相同的重點欄位。"""
-    s = load_spec_file(ROOT / "specs" / "arm_cortex_r5.md")
+    s = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
     r = lookup_register(s, "SCTLR", "0x00C7187D")
     assert r["ok"]
     reg = r["register"]

@@ -28,7 +28,7 @@ from ui.assets import build_main_html  # noqa: E402
 
 def build_preview_html(theme_attr: str = "") -> str:
     specs = load_builtin_specs(ROOT / "specs")
-    r5 = next(s for s in specs if s.spec_id == "arm_cortex_r5")
+    r5 = next(s for s in specs if s.spec_id == "cortex_r5")
     binf = load_bin(ROOT / "examples" / "sample_r5.bin")
     init = {
         "specs": [spec_summary(s) for s in specs],

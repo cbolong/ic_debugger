@@ -1,22 +1,26 @@
 # Spec MD 檔格式說明
 
-IC Debugger 的 CPU spec 以 Markdown 檔存放在 `specs/` 目錄，**build 時整個目錄會打包進
-exe**；app 內也可用「Spec 管理 → 載入外部 Spec」在執行時直接載入 .md 測試，確認沒問題
-再放進 `specs/` push（push 到 `main` 會自動觸發 CI 重新打包出新的 exe）。
+IC Debugger 的 CPU spec 以 Markdown 檔存放在 `specs/<廠商>/<型號>.md`，**build 時整個
+目錄會打包進 exe**；app 內也可用「Spec 管理 → 載入外部 Spec」在執行時直接載入 .md 測試，
+確認沒問題再放進 `specs/` push（push 到 `main` 會自動觸發 CI 重新打包出新的 exe）。
 
-完整實例請直接看 [`specs/arm_cortex_r5.md`](specs/arm_cortex_r5.md)（ARM）與
-[`specs/andes_n25.md`](specs/andes_n25.md)（RISC-V）。
+目錄與命名規則見 [`specs/README.md`](specs/README.md)。完整實例請直接看
+[`specs/arm/cortex_r5.md`](specs/arm/cortex_r5.md)（ARMv7-R CP15）、
+[`specs/arm/cortex_a55.md`](specs/arm/cortex_a55.md)（AArch64 64-bit）與
+[`specs/andes/n25.md`](specs/andes/n25.md)（RISC-V CSR）。
 
 ## 檔案結構
 
-一個 `.md` 檔＝一顆 CPU（的一個 spec 版本）。檔名建議 `廠商_型號.md`（小寫、底線），
-例如 `arm_cortex_a55.md`、`andes_n45.md`——檔名就是 app 內部的 spec ID。
+一個 `.md` 檔＝一顆 CPU（的一個 spec 版本），放在 `specs/<廠商>/` 底下，檔名建議
+`型號.md`（小寫、底線）——**子資料夾名就是 UI 的廠商分組**，檔名就是 app 內部的 spec ID。
+`README.md` 與底線開頭的檔案會被略過，可以安心把說明或草稿放在 spec 旁邊。
 
 ```markdown
 # CPU: ARM Cortex-R5          ← 必填：顯示名稱
 # Version: r1p2               ← 建議：spec 版號（顯示在下拉選單）
 # Width: 32                   ← 選填：預設暫存器寬度（bit），預設 32，可為 8/16/32/64
 # Source: ARM DDI 0460D       ← 選填：spec 出處（追溯用）
+# Status: 哪些部分已核對       ← 建議：查核狀態，UI 會顯眼標出（見下方說明）
 # Description: 一句話說明      ← 選填
 
 ## 暫存器名稱                  ← 每個暫存器一節，「## 」後面只放名稱
@@ -64,6 +68,19 @@ exe**；app 內也可用「Spec 管理 → 載入外部 Spec」在執行時直�
 - 每行 `- 值: 意義`。app 會把目前值對應的意義直接顯示在欄位旁，並在展開時列出
   全部選項——這是「不用翻 spec」的關鍵，**能寫的都寫**。
 
+### Status（查核狀態）
+
+`# Status:` 是寫給**下一個維護者**看的一句話：這份 spec 哪些部分已經對過原廠文件、
+哪些還沒。app 的「Spec 管理」與「Spec 全文」都會把它標成醒目的提示。
+
+因為 spec 寫錯會讓分析結果整個錯，本專案的規矩是：
+
+- **不確定的值寫 `-`，不要猜**（app 會顯示「無基準」，比填錯的 reset 值安全得多）。
+- **實作定義（IMPLEMENTATION DEFINED）的暫存器**在拿到文件前，先寫在檔尾的 HTML
+  註解待補清單裡（含編號與用途），不要先寫進表格。註解不會被解析，但在 app 的
+  「原始 Markdown」分頁看得到，補的人一目瞭然。
+- 補完欄位就更新 `# Status:`。
+
 ## 品質檢查
 
 app 的「Spec 管理」頁會列出每份 spec 的解析警告（缺 Offset、位元重疊、超出寬度、
@@ -75,10 +92,13 @@ repo**。CI 也會驗證 `specs/` 內所有檔案解析無警告，有問題會�
 要新增 CPU spec 時，把下面這段連同 spec 來源（TRM/datasheet 的 PDF 或文字）
 交給 AI 即可：
 
-> 請依照 repo 中 `SPEC_FORMAT.md` 的格式與 `specs/arm_cortex_r5.md` 的實例，
+> 請依照 repo 中 `SPEC_FORMAT.md` 的格式與 `specs/arm/cortex_r5.md` 的實例，
 > 把我提供的 CPU spec 轉成一份新的 spec MD 檔。要求：
 > 1. Offset 依我的 dump 腳本輸出順序從 0x000 開始遞增（32-bit 暫存器一個佔 4 bytes）。
 > 2. 每個暫存器的每個 bit 都要被欄位表涵蓋，保留位元命名 RES0／RES1。
 > 3. 有列舉意義的欄位（模式、開關、狀態碼）務必補上 `### Enum:` 區塊，意義用繁體中文。
 > 4. Reset 值照 spec 抄；依組態接腳或實作而異的寫 `-`。
 > 5. 只根據我提供的 spec 內容填寫，不確定的值寫 `-` 並在 Description 註明，不要編造。
+> 6. 實作定義（IMPLEMENTATION DEFINED）而我沒提供文件的暫存器，不要寫進表格，
+>    改列在檔尾的 HTML 註解待補清單（含暫存器編號與用途）。
+> 7. 檔頭補上 `# Status:` 說明哪些部分已核對、哪些待補。

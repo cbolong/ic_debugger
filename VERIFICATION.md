@@ -35,7 +35,11 @@
 | 暫存器依 Offset 排序、欄位依 msb 排序（非文件順序，**設計如此**） | ::test_registers_sorted_…、_fields_sorted_… | 亂序輸入 |
 | **全部 22 條警告分支**：訊息內容＋降級行為（略過該列/該暫存器，不毀整份 spec） | ::test_every_warning_branch（parametrize 22 案例）＋ _file_read_error_… | **警告分支逐條窮舉**，含行號驗證（_warning_carries_line_number） |
 | 合法輸入零多餘警告（防警告通膨） | ::test_clean_specs_have_zero_warnings、test_spec_loader.py::test_builtin_specs_parse_clean | 內建 spec 全檔 |
-| **內建 spec 必須解析零警告**（CI 品質關卡） | test_spec_loader.py::test_builtin_specs_parse_clean | specs/ 目錄全部檔案 |
+| **內建 spec 必須解析零警告**（CI 品質關卡） | test_spec_loader.py::test_builtin_specs_parse_clean | specs/ 遞迴全部檔案 |
+| 四顆內建 CPU 都在、且每份都有 Status／Source／足夠的暫存器數 | ::test_all_four_builtin_cpus_present_and_clean | cortex_r5／cortex_a55／n25／n45 逐份 |
+| 廠商＝子資料夾名（UI 分組依據） | ::test_builtin_specs_have_vendor_from_subfolder | 四份逐一 |
+| README.md 與底線開頭檔案不當成 spec（**設計如此**：讓維護者能在 spec 旁放說明與草稿） | ::test_is_spec_file_skips_readme_and_underscore、_readme_in_specs_dir_is_not_loaded | 副檔名／檔名各變體 |
+| `# Status:` 檔頭解析且不產生警告 | ::test_status_header_parsed_without_warning | — |
 
 ## 3. bin 解析與對應（bin_parser）
 
@@ -98,6 +102,7 @@
 | **用到的每個 var(--c-\*) 都有定義**（打錯 token 名顏色會靜默消失） | ::test_every_used_css_token_is_defined_in_light_root | HTML/CSS/JS 全文掃描 |
 | **每個 inline handler 都有對應函式**（改名/刪函式把按鈕改壞在此被抓） | ::test_every_inline_handler_has_declared_function | 全部 onclick/oninput/onchange |
 | JS 引用的靜態元素 id 都存在 | ::test_every_getelementbyid_target_exists | 全部 getElementById |
+| spec 下拉選單與 Spec 管理依廠商分組（**設計如此**：共用 groupSpecsByVendor，不准各分各的） | tools/preview.py 截圖＋第 10 節人工清單 | ARM／Andes／外部載入三組 |
 | 六個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/lookup/hex/specdoc/specs |
 | **JS 呼叫的每個 api 方法都存在於 Python Api**（橋接兩端同步） | ::test_api_methods_called_from_js_exist_in_python | 全部 api() 呼叫 × AST 解析 Api 類 |
 | Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
@@ -119,7 +124,7 @@ pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機�
 **每次 Release 後抽最新 exe 跑一遍：**
 
 1. 從 Releases 下載 `IC_Debugger.exe` 雙擊（SmartScreen →「仍要執行」）→ 視窗開啟、無白畫面。
-2. 右上角切換 spec（R5 ↔ N25）→ 暫存器清單跟著換。
+2. 右上角下拉：spec 依「ARM／Andes」分組，四顆 CPU 都在；切換後暫存器清單跟著換。
 3. 「匯入 bin」選 `examples/sample_r5.bin` → 總覽顯示 12/12、2 個 ≠Reset（SCTLR、CPACR）。
 4. 展開 SCTLR → 「目前值／Reset」成對顯示在最上方；bit ruler 顯示 M/C/Z/I/BR 藍色高亮；DFSR 的 FS 顯示「對齊（alignment）fault」。
 5. 🌓 切深色 → 關掉重開 exe → 仍是深色（設定記憶）。

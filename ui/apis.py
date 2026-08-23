@@ -12,6 +12,7 @@ pywebview 會在 worker thread 呼叫這些方法：所有進入點都拿 self._
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from pathlib import Path
 
@@ -156,7 +157,8 @@ class Api:
         win = self._window()
         if win is None:
             return {"ok": False, "error": "視窗尚未就緒"}
-        default_name = f"ic_debugger_{payload['spec']['id']}.md"
+        safe_id = re.sub(r"[^A-Za-z0-9_.-]", "_", str(payload["spec"]["id"])) or "spec"
+        default_name = f"ic_debugger_{safe_id}.md"
         result = win.create_file_dialog(
             webview.SAVE_DIALOG,
             directory=self._state.cfg.get("last_dir") or "",

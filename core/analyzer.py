@@ -225,6 +225,8 @@ def spec_summary(spec: Spec) -> dict:
         "display_name": spec.display_name,
         "width": spec.width,
         "source": spec.source,
+        "status": spec.status,
+        "vendor": spec.vendor,
         "desc": spec.desc,
         "origin": spec.origin,
         "path": spec.path,
