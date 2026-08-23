@@ -346,6 +346,10 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .lk-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .lk-form .btn-accent { height: 34px; }
 .lk-form .kv-label { margin-bottom: 3px; }
+.lk-detail {
+  background: var(--c-bg-softer); border: 1px solid var(--c-border);
+  border-radius: 12px; padding: 14px 16px 18px; margin-bottom: 16px;
+}
 
 /* ── Spec 全文 ── */
 .doc-head { margin-bottom: 16px; }
@@ -436,6 +440,7 @@ var S = {
   docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
   lk: { q: '', v: '', result: null, note: null, error: null,
         history: [], spec_id: null },  // 快速反查（歷史限本次執行）
+  hideRes: true,    // 預設隱藏「與 Reset 相同的保留／未定義位元」列（降噪）
 };
 
 function esc(s){
@@ -551,9 +556,15 @@ function goReg(name){
   var el = document.getElementById('reg-' + cssId(name));
   if (el) { el.scrollIntoView({ block: 'center' }); }
 }
-// bit ruler 點欄位 → 對應表格列捲動 + 閃爍
+// bit ruler 點欄位 → 對應表格列捲動 + 閃爍；點到被「隱藏保留位」過濾掉的列
+// 時自動展開（使用者點了就是想看，不能只給沉默）
 function focusField(ri, fi){
   var row = document.getElementById('ft-' + ri + '-' + fi);
+  if (!row && S.hideRes) {
+    S.hideRes = false;
+    renderView();
+    row = document.getElementById('ft-' + ri + '-' + fi);
+  }
   if (!row) return;
   row.scrollIntoView({ block: 'center' });
   row.classList.add('flash');
@@ -585,13 +596,17 @@ function visibleRegs(){
 
 function cssId(s){ return String(s).replace(/[^A-Za-z0-9_-]/g, '_'); }
 
-function regStatus(r){
-  if (!S.payload || !S.payload.bin) return null;
-  if (!r.covered) return r.partial ? ['截斷', 'chip-warn'] : ['未涵蓋', 'chip-warn'];
-  if (r.differs === true) return ['≠ Reset', 'chip-diff'];
-  if (r.differs === false) return ['= Reset', 'chip-same'];
-  return ['無基準', 'chip-none'];
+// 狀態 chip 的唯一渲染來源（暫存器清單、反查歷史都用這支——不准各寫各的）
+// always=false：沒載入 bin 時不顯示（spec 閱讀模式沒有「狀態」可言）
+function statusChipHtml(r, always){
+  if (!always && !(S.payload && S.payload.bin)) return '';
+  if (!r.covered) return '<span class="chip chip-warn">' + (r.partial ? '截斷' : '未涵蓋') + '</span>';
+  if (r.differs === true) return '<span class="chip chip-diff">≠ Reset</span>';
+  if (r.differs === false) return '<span class="chip chip-same">= Reset</span>';
+  return '<span class="chip chip-none">無基準</span>';
 }
+
+function toggleHideRes(){ S.hideRes = !S.hideRes; renderView(); }
 
 // ────────────────────────────────────────────────────────────────────
 // 渲染
@@ -717,6 +732,7 @@ function renderRegs(){
   }
   h += '<button class="btn" onclick="setAll(true)">全部展開</button>';
   h += '<button class="btn" onclick="setAll(false)">全部收合</button>';
+  h += '<button class="btn" onclick="toggleHideRes()">' + (S.hideRes ? '顯示保留位' : '隱藏保留位') + '</button>';
   h += '<button class="btn" onclick="exportReport()">匯出報告 (.md)</button>';
   h += '</div>';
 
@@ -730,7 +746,6 @@ function renderRegs(){
        (hasBin ? '<th>狀態</th>' : '') + '<th>說明</th></tr></thead><tbody>';
   regs.forEach(function(r, ri){
     var open = !!S.expanded[r.name];
-    var status = regStatus(r);
     h += '<tr class="reg-row' + (open ? ' open' : '') + '" id="reg-' + cssId(r.name) + '" onclick="toggleReg(\'' + jsq(r.name) + '\')">';
     h += '<td class="caret">' + (open ? '▼' : '▶') + '</td>';
     h += '<td class="reg-name">' + esc(r.name) + '</td>';
@@ -738,19 +753,23 @@ function renderRegs(){
     h += '<td class="mono' + (r.differs === true ? ' val-accent' : '') + '">' +
          (r.value_hex || '<span class="muted">—</span>') + '</td>';
     h += '<td class="mono muted">' + (r.reset_hex || '—') + '</td>';
-    if (hasBin) h += '<td>' + (status ? '<span class="chip ' + status[1] + '">' + status[0] + '</span>' : '') + '</td>';
+    if (hasBin) h += '<td>' + statusChipHtml(r, false) + '</td>';
     h += '<td class="reg-desc">' + esc(r.desc || '') + '</td></tr>';
     if (open) {
-      h += '<tr class="detail-row"><td colspan="' + (hasBin ? 7 : 6) + '">' + renderDetail(r, ri) + '</td></tr>';
+      h += '<tr class="detail-row"><td colspan="' + (hasBin ? 7 : 6) + '">' + registerBlock(r, ri, {}) + '</td></tr>';
     }
   });
   h += '</tbody></table></div>';
   return h;
 }
 
-function renderDetail(r, ri){
-  // 「目前值 / Reset」成對並排放最前面：這兩個數字就是使用者要的答案
+// 單一暫存器的完整呈現（標頭「目前值/Reset」成對＋bit ruler＋欄位表）。
+// 「暫存器」展開與「快速反查」共用這一支 —— 同一種資訊只准有一份渲染程式，
+// 避免改 A 壞 B（CLAUDE.md 不變條件 12）。
+function registerBlock(r, ri, opts){
+  opts = opts || {};
   var h = '<div class="detail-head">';
+  if (opts.showName) h += '<span class="reg-name" style="font-size:15px">' + esc(r.name) + '</span>';
   if (r.value_hex) {
     h += '<span class="kv"><span class="kv-label">目前值</span>' +
          '<span class="detail-val' + (r.differs === true ? ' val-accent' : '') + '">' + r.value_hex + '</span></span>';
@@ -761,8 +780,9 @@ function renderDetail(r, ri){
   if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
   if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
   h += '</div>';
+  if (opts.showDesc && r.desc) h += '<div class="reg-desc" style="margin-bottom:4px">' + esc(r.desc) + '</div>';
   h += bitRuler(r, ri);
-  h += fieldTable(r, ri);
+  h += fieldTable(r, ri, { hideReserved: S.hideRes });
   return h;
 }
 
@@ -788,12 +808,16 @@ function bitRuler(r, ri){
 function fieldTable(r, ri, opts){
   opts = opts || {};
   var hasVal = !!r.value_hex;
+  var hidden = 0;
   // 欄位順序刻意讓「目前值」與「Reset」相鄰：一眼比對，不用左右掃（設計如此）
   var h = '<div class="table-wrap" style="margin-bottom:0"><table class="field-table"><thead><tr>' +
           '<th>Bits</th><th>欄位</th>' + (hasVal ? '<th>目前值</th>' : '') +
           '<th>Reset</th><th>意義</th><th>Access</th></tr></thead><tbody>';
   r.rows.forEach(function(f, fi){
     var dim = f.reserved || f.kind === 'undef';
+    // 降噪：與 Reset 相同的保留／未定義位元預設隱藏；「異常的保留位」
+    //（值≠Reset、未定義非 0）一律強制顯示 —— 這是安全網，不准藏掉異常（設計如此）
+    if (opts.hideReserved && dim && f.differs !== true && !f.nonzero) { hidden++; return; }
     h += '<tr class="frow' + (dim ? ' dim' : '') + (f.differs === true ? ' diff' : '') + '" id="ft-' + ri + '-' + fi + '">';
     h += '<td class="mono muted">' + f.bits + '</td>';
     h += '<td class="fname">' + esc(f.name) + '</td>';
@@ -810,6 +834,10 @@ function fieldTable(r, ri, opts){
     h += '<td class="mono muted">' + esc(f.access || '') + '</td>';
     h += '</tr>';
   });
+  if (hidden) {
+    h += '<tr class="frow dim"><td colspan="' + (hasVal ? 6 : 5) + '" style="cursor:pointer" ' +
+         'onclick="toggleHideRes()">… 已隱藏 ' + hidden + ' 個與 Reset 相同的保留／未定義位元（點此顯示）</td></tr>';
+  }
   return h + '</tbody></table></div>';
 }
 
@@ -938,21 +966,8 @@ function renderLookup(){
 
   var r = S.lk.result;
   if (r) {
-    h += '<div class="card" style="margin-bottom:12px">';
-    h += '<div class="detail-head" style="margin-bottom:2px">';
-    h += '<span class="reg-name" style="font-size:15px">' + esc(r.name) + '</span>';
-    h += '<span class="kv"><span class="kv-label">目前值</span>' +
-         '<span class="detail-val' + (r.differs === true ? ' val-accent' : '') + '">' + r.value_hex + '</span></span>';
-    h += '<span class="kv"><span class="kv-label">Reset</span>' +
-         '<span class="detail-val muted">' + (r.reset_hex || '—') + '</span></span>';
-    h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex + '</span>';
-    if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
-    if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
-    h += '</div>';
-    if (r.desc) h += '<div class="reg-desc" style="margin-bottom:4px">' + esc(r.desc) + '</div>';
-    h += bitRuler(r, 'lk');
-    h += '</div>';
-    h += fieldTable(r, 'lk');
+    // 與「暫存器」展開共用同一支 registerBlock —— 呈現永遠一致
+    h += '<div class="lk-detail">' + registerBlock(r, 'lk', { showName: true, showDesc: true }) + '</div>';
   } else if (!S.lk.error) {
     h += '<div class="empty"><div class="big">🔍</div><p>輸入暫存器（可打名稱，會自動提示）與讀到的值，立即解碼<br>' +
          '不用準備 bin 檔 —— 適合只想確認一兩個暫存器的時候。</p></div>';
@@ -968,9 +983,7 @@ function renderLookup(){
            '<td class="reg-name">' + esc(hr.name) + '</td>' +
            '<td class="mono muted">' + hr.offset_hex + '</td>' +
            '<td class="mono' + (hr.differs === true ? ' val-accent' : '') + '">' + hr.value_hex + '</td>' +
-           '<td>' + (hr.differs === true ? '<span class="chip chip-diff">≠ Reset</span>'
-                     : hr.differs === false ? '<span class="chip chip-same">= Reset</span>'
-                     : '<span class="chip chip-none">無基準</span>') + '</td></tr>';
+           '<td>' + statusChipHtml(hr, true) + '</td></tr>';
     });
     h += '</tbody></table></div>';
   }
