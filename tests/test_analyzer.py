@@ -182,12 +182,12 @@ def test_hexdump_annotation():
 # ── 範例 bin × 範例 spec 整合 ────────────────────────────────────────────
 
 def test_sample_bin_against_r5_spec():
-    spec = load_spec_file(ROOT / "specs" / "arm_cortex_r5.md")
+    spec = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
     binf = load_bin(ROOT / "examples" / "sample_r5.bin")
     payload = build_payload(spec, binf)
     st = payload["stats"]
-    assert st["total"] == 12 and st["covered"] == 12
-    assert st["bin_size"] == st["spec_span_bytes"] == 48
+    assert st["total"] == 17 and st["covered"] == 17
+    assert st["bin_size"] == st["spec_span_bytes"] == 68
 
     regs = {r["name"]: r for r in payload["registers"]}
     assert regs["MIDR"]["differs"] is False
@@ -196,7 +196,7 @@ def test_sample_bin_against_r5_spec():
     m = next(r for r in sctlr["rows"] if r["name"] == "M")
     assert m["enum_label"] == "MPU 開啟" and m["differs"] is True
     dfsr = regs["DFSR"]
-    fs = next(r for r in dfsr["rows"] if r["name"] == "FS")
+    fs = next(r for r in dfsr["rows"] if r["name"] == "FS[3:0]")
     assert fs["enum_label"] == "對齊（alignment）fault"
     wnr = next(r for r in dfsr["rows"] if r["name"] == "WnR")
     assert wnr["enum_label"] == "寫入時發生"

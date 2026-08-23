@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from core.spec_loader import load_spec_file, parse_int, parse_spec_text
+from core.spec_loader import (is_spec_file, load_builtin_specs, load_spec_file,
+                              parse_int, parse_spec_text)
 
 SPECS_DIR = Path(__file__).resolve().parent.parent / "specs"
 
@@ -10,7 +11,7 @@ SPECS_DIR = Path(__file__).resolve().parent.parent / "specs"
 # ── 內建 spec 品質關卡：打包進 exe 的 spec 必須解析乾淨 ──────────────────
 
 def test_builtin_specs_parse_clean():
-    files = sorted(SPECS_DIR.glob("*.md"))
+    files = [p for p in sorted(SPECS_DIR.rglob("*.md")) if is_spec_file(p)]
     assert files, "specs/ 目錄不能是空的"
     for f in files:
         spec = load_spec_file(f)
@@ -19,11 +20,11 @@ def test_builtin_specs_parse_clean():
 
 
 def test_builtin_r5_shape():
-    spec = load_spec_file(SPECS_DIR / "arm_cortex_r5.md")
+    spec = load_spec_file(SPECS_DIR / "arm" / "cortex_r5.md")
     assert spec.cpu == "ARM Cortex-R5"
     assert spec.width == 32
     names = [r.name for r in spec.registers]
-    assert names[0] == "MIDR" and "SCTLR" in names
+    assert names[0] == "MIDR" and "SCTLR" in names and "DRACR" in names
     midr = spec.registers[0]
     assert midr.offset == 0 and midr.reset == 0x411FC152
     impl = midr.fields[0]
@@ -179,3 +180,53 @@ def test_missing_cpu_header_warns_and_falls_back():
     spec = parse_spec_text("## R\n- Offset: 0x0\n", "my_file")
     assert spec.cpu == "my_file"
     assert any("CPU" in w for w in spec.warnings)
+
+
+# ── 目錄結構：廠商子資料夾、非 spec 檔略過（specs/README.md 的存在依據）──
+
+def test_builtin_specs_have_vendor_from_subfolder():
+    specs = {s.spec_id: s for s in load_builtin_specs(SPECS_DIR)}
+    assert specs["cortex_r5"].vendor == "arm"
+    assert specs["cortex_a55"].vendor == "arm"
+    assert specs["n25"].vendor == "andes"
+    assert specs["n45"].vendor == "andes"
+
+
+def test_all_four_builtin_cpus_present_and_clean():
+    """使用者指定的四顆 CPU 必須都在，且每顆都要有 Status 與可觀的暫存器數。"""
+    specs = {s.spec_id: s for s in load_builtin_specs(SPECS_DIR)}
+    assert set(specs) == {"cortex_r5", "cortex_a55", "n25", "n45"}
+    for sid, spec in specs.items():
+        assert spec.warnings == [], f"{sid}: {spec.warnings}"
+        assert spec.status, f"{sid} 缺少 # Status:（查核狀態是給下一個維護者看的）"
+        assert spec.source, f"{sid} 缺少 # Source:"
+        assert len(spec.registers) >= 15, f"{sid} 暫存器太少：{len(spec.registers)}"
+    assert specs["cortex_a55"].width == 64  # AArch64 一律 64-bit
+    assert specs["cortex_r5"].width == 32
+
+
+def test_is_spec_file_skips_readme_and_underscore(tmp_path):
+    from pathlib import Path as _P
+    assert is_spec_file(_P("specs/arm/cortex_r5.md"))
+    assert not is_spec_file(_P("specs/README.md"))
+    assert not is_spec_file(_P("specs/readme.md"))
+    assert not is_spec_file(_P("specs/_draft.md"))
+    assert not is_spec_file(_P("specs/notes.txt"))
+
+
+def test_readme_in_specs_dir_is_not_loaded(tmp_path):
+    (tmp_path / "arm").mkdir()
+    (tmp_path / "arm" / "chip.md").write_text(
+        "# CPU: X\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("這不是 spec，只是說明文件", encoding="utf-8")
+    (tmp_path / "arm" / "_draft.md").write_text("草稿", encoding="utf-8")
+    specs = load_builtin_specs(tmp_path)
+    assert [s.spec_id for s in specs] == ["chip"]
+    assert specs[0].vendor == "arm"
+
+
+def test_status_header_parsed_without_warning():
+    spec = parse_spec_text(
+        "# CPU: T\n# Status: 已核對 TRM r1p2\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
+    assert spec.status == "已核對 TRM r1p2"
+    assert spec.warnings == []

@@ -22,14 +22,14 @@ def _fresh_cfg(**over):
 def test_load_builtin_specs_and_default_selection():
     st = AppState(cfg=_fresh_cfg())
     st.load_specs()
-    assert "arm_cortex_r5" in st.specs and "andes_n25" in st.specs
-    assert st.current_id == "andes_n25"  # 依檔名排序的第一個
+    assert {"cortex_r5", "cortex_a55", "n25", "n45"} <= set(st.specs)
+    assert st.current_id == "n25"  # 依 (廠商, 檔名) 排序的第一個
 
 
 def test_last_spec_restored():
-    st = AppState(cfg=_fresh_cfg(last_spec="arm_cortex_r5"))
+    st = AppState(cfg=_fresh_cfg(last_spec="cortex_r5"))
     st.load_specs()
-    assert st.current_id == "arm_cortex_r5"
+    assert st.current_id == "cortex_r5"
 
 
 def test_add_and_remove_external(tmp_path):
@@ -44,7 +44,7 @@ def test_add_and_remove_external(tmp_path):
     assert str(p) in st.cfg["external_specs"]
 
     # 內建不能移除
-    assert not st.remove_external("arm_cortex_r5")
+    assert not st.remove_external("cortex_r5")
     assert st.remove_external("my_chip")
     assert "my_chip" not in st.specs
     assert st.cfg["external_specs"] == []
@@ -52,13 +52,13 @@ def test_add_and_remove_external(tmp_path):
 
 
 def test_external_id_collision_gets_suffix(tmp_path):
-    p = tmp_path / "arm_cortex_r5.md"  # 與內建同名
+    p = tmp_path / "cortex_r5.md"  # 與內建同名
     p.write_text(EXT_SPEC, encoding="utf-8")
     st = AppState(cfg=_fresh_cfg())
     st.load_specs()
     spec = st.add_external(str(p))
-    assert spec.spec_id == "arm_cortex_r5~2"
-    assert st.specs["arm_cortex_r5"].origin == "builtin"
+    assert spec.spec_id == "cortex_r5~2"
+    assert st.specs["cortex_r5"].origin == "builtin"
 
 
 def test_detail_binf_only_for_current_spec():

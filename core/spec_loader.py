@@ -72,7 +72,9 @@ class Spec:
     version: str = ""
     width: int = 32
     source: str = ""
+    status: str = ""      # 查核狀態（# Status:），UI 直接顯示，提醒哪些欄位還沒對過原廠文件
     desc: str = ""
+    vendor: str = ""      # 廠商＝specs/ 下的子目錄名（arm、andes…），UI 用來分組
     registers: list[Register] = dc_field(default_factory=list)
     warnings: list[str] = dc_field(default_factory=list)
     origin: str = "builtin"  # builtin（打包進 exe）| external（執行時載入）
@@ -197,6 +199,8 @@ def parse_spec_text(text: str, spec_id: str, path: str = "", origin: str = "buil
                     warn(f"{loc}:{ln}: Width「{val}」無效（只接受 8/16/32/64），改用預設 32")
             elif key == "source":
                 spec.source = val
+            elif key == "status":
+                spec.status = val
             elif key == "description":
                 spec.desc = val
             else:
@@ -349,22 +353,44 @@ def _finalize(spec: Spec, loc: str) -> None:
         warn(f"{loc}: 這份 spec 沒有任何有效的暫存器")
 
 
-def load_spec_file(path: str | Path, origin: str = "builtin") -> Spec:
+def load_spec_file(path: str | Path, origin: str = "builtin", vendor: str = "") -> Spec:
     """從檔案載入 spec。讀檔失敗回傳只帶 warning 的空 Spec（UI 可呈現）。"""
     p = Path(path)
     spec_id = p.stem
     try:
         text = p.read_text(encoding="utf-8-sig")  # 容忍 Windows 編輯器的 BOM
     except OSError as e:
-        s = Spec(spec_id=spec_id, cpu=spec_id, origin=origin, path=str(p))
+        s = Spec(spec_id=spec_id, cpu=spec_id, origin=origin, path=str(p), vendor=vendor)
         s.warnings.append(f"{p.name}: 讀取失敗：{e}")
         return s
-    return parse_spec_text(text, spec_id=spec_id, path=str(p), origin=origin)
+    spec = parse_spec_text(text, spec_id=spec_id, path=str(p), origin=origin)
+    spec.vendor = vendor
+    return spec
+
+
+def is_spec_file(path: Path) -> bool:
+    """specs/ 底下哪些 .md 算 spec：排除 README 與底線開頭的檔名，
+    讓維護者能在 spec 旁邊放說明/草稿而不會被當成壞掉的 spec 解析。"""
+    return (path.suffix.lower() == ".md"
+            and path.stem.upper() != "README"
+            and not path.name.startswith("_"))
 
 
 def load_builtin_specs(specs_dir: str | Path) -> list[Spec]:
-    """載入內建 spec 目錄下所有 .md（依檔名排序，確保 UI 順序穩定）。"""
+    """遞迴載入內建 spec 目錄下所有 .md。
+
+    目錄結構＝`specs/<廠商>/<型號>.md`（例：specs/arm/cortex_r5.md）；
+    子目錄名就是廠商（UI 依此分組），放在 specs/ 根目錄的檔案廠商為空字串。
+    依 (廠商, 檔名) 排序，確保 UI 的清單順序永遠穩定。
+    """
     d = Path(specs_dir)
     if not d.is_dir():
         return []
-    return [load_spec_file(p, origin="builtin") for p in sorted(d.glob("*.md"))]
+    files = sorted((p for p in d.rglob("*.md") if is_spec_file(p)),
+                   key=lambda p: (p.parent.relative_to(d).as_posix(), p.stem))
+    out = []
+    for p in files:
+        rel_parent = p.parent.relative_to(d).as_posix()
+        vendor = "" if rel_parent == "." else rel_parent.split("/")[0]
+        out.append(load_spec_file(p, origin="builtin", vendor=vendor))
+    return out
