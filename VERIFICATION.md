@@ -67,16 +67,29 @@
 | 未載入 bin（或看非目前 spec）＝純 spec、無值 | ::test_spec_detail_builtin_raw_matches_file | 全暫存器斷言 |
 | 已載入 bin 時同頁疊上目前值，且值/differs 與暫存器頁**完全一致**（**設計如此**：兩頁共用 build_payload 單一解碼來源，不允許各算各的） | ::test_spec_detail_with_bin_overlays_values | 範例 bin 全暫存器逐一比對 |
 | **只有「目前使用中的 spec」疊值**（**設計如此**：bin 的 offset 對應跟著 spec 走，套到別份 spec 上值無意義） | test_app_state.py::test_detail_binf_only_for_current_spec | 目前／非目前／無 bin 三態 |
-| 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 9 節人工清單第 4/6 項） | — |
+| 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 10 節人工清單第 4/6 項） | — |
 
-## 6. App 狀態（spec 集合管理）
+## 6. 快速反查（offset／名稱＋值 → 單筆解碼）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| 解析路徑：名稱（大小寫不拘/含空白）、offset（0x/十進位/0b）、落在暫存器範圍中間（32-bit 中段、64-bit 高半段）→ 整顆解碼＋note | test_lookup.py::test_resolution_paths_exhaustive | **12 種解析路徑全表** |
+| 失敗路徑：未知名稱（帶「名稱相近」建議）、超出 spec 範圍（講明涵蓋區間）、空輸入、空 spec —— 一律中文錯誤，絕不丟例外 | ::test_resolution_failures_exhaustive、_empty_spec | 6 種失敗路徑全表 |
+| **名稱優先於 offset 解讀**（**設計如此**：名稱長得像數字時以名稱為準） | ::test_name_priority_over_offset_parse | — |
+| 值驗證：0／1／最大值合法；最大值+1、負數、亂字串 → 錯誤（**設計如此**：絕不默默截斷） | ::test_value_bounds_every_width | **寬度 8/16/32/64 全部 × 邊界值** |
+| 值格式等價：0x／0X／十進位／0b／底線／空白 → 同一結果 | ::test_value_formats_equivalent_and_invalid | 6 種寫法＋6 種非法輸入 |
+| **與 bin 模式完全同源**（**設計如此**：共用 _register_dict，deep equality 一個 key 都不准差） | ::test_lookup_identical_to_bin_path、_lookup_r5_sample_case | 32/64-bit 逐顆深度比對＋R5 端到端 |
+| 同名暫存器取 offset 最小者 | ::test_duplicate_register_names_pick_first_by_offset | — |
+| 查詢歷史限本次執行、換 spec 即作廢（UI 行為） | tools/preview.py 截圖＋第 10 節人工清單 | — |
+
+## 7. App 狀態（spec 集合管理）
 
 | 行為 | 驗證 | 窮舉範圍 |
 |---|---|---|
 | 內建載入、last_spec 記憶、預設選第一個 | test_app_state.py::test_load_builtin_…、_last_spec_restored | — |
 | 外部 spec 加入/移除/重載、內建不可移除、同名衝突加 `~2` 後綴（**設計如此**） | ::test_add_and_remove_external、_external_id_collision_…、_reload_keeps_external | 各狀態轉移 |
 
-## 7. UI（HTML/CSS/JS 靜態保證）
+## 8. UI（HTML/CSS/JS 靜態保證）
 
 | 行為 | 驗證 | 窮舉範圍 |
 |---|---|---|
@@ -85,12 +98,12 @@
 | **用到的每個 var(--c-\*) 都有定義**（打錯 token 名顏色會靜默消失） | ::test_every_used_css_token_is_defined_in_light_root | HTML/CSS/JS 全文掃描 |
 | **每個 inline handler 都有對應函式**（改名/刪函式把按鈕改壞在此被抓） | ::test_every_inline_handler_has_declared_function | 全部 onclick/oninput/onchange |
 | JS 引用的靜態元素 id 都存在 | ::test_every_getelementbyid_target_exists | 全部 getElementById |
-| 五個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/hex/specdoc/specs |
+| 六個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/lookup/hex/specdoc/specs |
 | **JS 呼叫的每個 api 方法都存在於 Python Api**（橋接兩端同步） | ::test_api_methods_called_from_js_exist_in_python | 全部 api() 呼叫 × AST 解析 Api 類 |
 | Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
-| 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 9 張截圖） | overview/regs(展開)/hex/specs/specdoc(解析後+原文)×兩主題 |
+| 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 10 張截圖） | overview/regs(展開)/lookup/hex/specs/specdoc(解析後+原文)×兩主題 |
 
-## 8. 報告匯出
+## 9. 報告匯出
 
 | 行為 | 驗證 |
 |---|---|
@@ -98,7 +111,7 @@
 | 表格 cell 的「\|」跳脫（enum 意義可含直線） | ::test_report_escapes_pipe_in_enum_label |
 | 無 bin 措辭、零差異時 only_differs 為空表 | ::test_report_no_bin_and_no_diff_wording |
 
-## 9. 無法自動化的部分 —— Windows 實機檢查清單
+## 10. 無法自動化的部分 —— Windows 實機檢查清單
 
 pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機驗。
 **每次 Release 後抽最新 exe 跑一遍：**
@@ -109,11 +122,12 @@ pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機�
 4. 展開 SCTLR → 「目前值／Reset」成對顯示在最上方；bit ruler 顯示 M/C/Z/I/BR 藍色高亮；DFSR 的 FS 顯示「對齊（alignment）fault」。
 5. 🌓 切深色 → 關掉重開 exe → 仍是深色（設定記憶）。
 6. 「Spec 全文」→ 兩個分頁都有內容；載入 bin 後每個暫存器標頭出現「目前值」（SCTLR/CPACR 為藍色 ≠Reset）；「原始 Markdown」與 repo 檔案一致。
-7. 「Spec 管理 → 載入外部 Spec」選任一 .md → 出現在清單；「移除」正常。
-8. 「匯出報告 (.md)」→ 檔案打得開、內容與畫面一致。
-9. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
+7. 「快速反查」輸入 SCTLR＋0x00C7187D → 解碼結果與第 3 步展開的 SCTLR 完全相同；輸入 0xFF（超範圍 offset）→ 出現涵蓋範圍錯誤訊息。
+8. 「Spec 管理 → 載入外部 Spec」選任一 .md → 出現在清單；「移除」正常。
+9. 「匯出報告 (.md)」→ 檔案打得開、內容與畫面一致。
+10. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
 
-## 10. 新增功能的規則
+## 11. 新增功能的規則
 
 新功能（或行為變更）**必須**：
 1. 在本檔加追溯列（含窮舉範圍說明）；

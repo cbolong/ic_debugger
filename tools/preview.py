@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.analyzer import build_payload, spec_detail, spec_summary  # noqa: E402
+from core.analyzer import build_payload, lookup_register, spec_detail, spec_summary  # noqa: E402
 from core.bin_parser import load_bin  # noqa: E402
 from core.spec_loader import load_builtin_specs  # noqa: E402
 from core.version import APP_VERSION  # noqa: E402
@@ -34,6 +34,7 @@ def build_preview_html(theme_attr: str = "") -> str:
         "specs": [spec_summary(s) for s in specs],
         "payload": build_payload(r5, binf),
         "spec_detail": spec_detail(r5, binf),
+        "lookup_demo": lookup_register(r5, "SCTLR", "0x00C7187D"),
         "version": APP_VERSION,
     }
     blob = json.dumps(init, ensure_ascii=False).replace("</", "<\\/")
@@ -94,6 +95,11 @@ def main() -> int:
         page.click('[data-view="specs"]')
         page.wait_for_selector(".spec-card")
         shot("4_specs_light.png")
+
+        # 快速反查（預覽模式塞入 SCTLR 示範結果）
+        page.click('[data-view="lookup"]')
+        page.wait_for_selector(".lk-form")
+        shot("10_lookup_light.png")
 
         # Spec 全文：解析後與原始 Markdown 兩個分頁
         page.click('[data-view="specdoc"]')

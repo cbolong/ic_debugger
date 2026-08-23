@@ -99,7 +99,7 @@ def test_every_getelementbyid_target_exists():
 def test_all_views_have_render_branch_and_nav_entry():
     html = build_main_html("")
     views_in_nav = set(re.findall(r'data-view="(\w+)"', html))
-    assert views_in_nav == {"overview", "regs", "hex", "specdoc", "specs"}
+    assert views_in_nav == {"overview", "regs", "lookup", "hex", "specdoc", "specs"}
     body = _scripts(html)[1]
     for v in views_in_nav:
         assert f"'{v}'" in body, f"renderView 缺少 {v} 的分支或入口"

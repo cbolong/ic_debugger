@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from .bin_parser import BinFile, word_at
-from .spec_loader import Field, Register, Spec
+from .spec_loader import Field, Register, Spec, parse_int
 
 
 # ── 數值格式化 ────────────────────────────────────────────────────────────
@@ -231,6 +231,55 @@ def spec_summary(spec: Spec) -> dict:
         "register_count": len(spec.registers),
         "warnings": list(spec.warnings),
     }
+
+
+def lookup_register(spec: Spec, query: str, value_text: str) -> dict:
+    """快速反查：使用者只有「一組 offset（或暫存器名稱）＋一個值」時的單筆解碼。
+
+    解碼結果與 bin 模式**完全同源**（設計如此）：把值放進一個假想 buffer 的
+    對應位移，走同一個 _register_dict() —— 兩條路徑永遠不會各解各的。
+
+    回傳 {"ok": True, "register": <同 build_payload 的暫存器 dict>, "note": …}
+    或 {"ok": False, "error": 中文錯誤訊息（含建議）}。
+    """
+    q = (query or "").strip()
+    if not q:
+        return {"ok": False, "error": "請輸入暫存器名稱或 Offset"}
+    regs = sorted(spec.registers, key=lambda r: r.offset)
+    if not regs:
+        return {"ok": False, "error": "目前的 spec 沒有任何暫存器"}
+
+    # 名稱優先（大小寫不拘）——工程師手上常只有名字，offset 是 dump 腳本的產物
+    reg = next((r for r in regs if r.name.lower() == q.lower()), None)
+    note = None
+    if reg is None:
+        off = parse_int(q)
+        if off is None or off < 0:
+            cands = [r.name for r in regs if q.lower() in r.name.lower()][:8]
+            hint = f"；名稱相近：{'、'.join(cands)}" if cands else ""
+            return {"ok": False, "error": f"找不到暫存器「{q}」{hint}"}
+        reg = next((r for r in regs if r.offset == off), None)
+        if reg is None:
+            # 落在某暫存器範圍中間（例如 64-bit 的高半段）→ 以整個暫存器解碼並註記
+            inside = next((r for r in regs if r.offset < off < r.offset + r.size // 8), None)
+            if inside is None:
+                return {"ok": False, "error":
+                        f"spec 沒有定義 Offset 0x{off:X}（此 spec 涵蓋 0x000–0x{spec.span_bytes - 1:03X}）"}
+            reg = inside
+            note = (f"Offset 0x{off:X} 位於 {reg.name}（Offset 0x{reg.offset:X}、"
+                    f"{reg.size}-bit）的範圍內，以整個暫存器解碼")
+
+    value = parse_int(value_text)
+    if value is None:
+        return {"ok": False, "error": f"值「{(value_text or '').strip()}」解析失敗（可用 0x…、0b…、十進位）"}
+    if value < 0:
+        return {"ok": False, "error": "值不可為負數"}
+    if value >= (1 << reg.size):
+        return {"ok": False, "error":
+                f"值 0x{value:X} 超過 {reg.name} 的寬度（{reg.size}-bit，最大 {fmt_hex((1 << reg.size) - 1, reg.size)}）"}
+
+    data = bytes(reg.offset) + value.to_bytes(reg.size // 8, "little")
+    return {"ok": True, "register": _register_dict(reg, data), "note": note}
 
 
 def spec_detail(spec: Spec, binf: BinFile | None = None) -> dict:

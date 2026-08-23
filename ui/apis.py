@@ -19,7 +19,7 @@ import webview
 
 from app_config import save_config
 from app_state import AppState
-from core.analyzer import build_payload, spec_detail, spec_summary
+from core.analyzer import build_payload, lookup_register, spec_detail, spec_summary
 from core.bin_parser import BinError, load_bin
 from core.report import render_markdown
 from core.version import APP_VERSION
@@ -120,6 +120,17 @@ class Api:
                 return {"ok": False, "error": "只能移除外部 spec"}
             self._save_cfg()
             return self._snapshot()
+
+    def lookup(self, query: str, value_text: str) -> dict:
+        """快速反查：offset（或暫存器名稱）＋值 → 單筆解碼（依目前 spec）。"""
+        with self._lock:
+            spec = self._state.current
+            if spec is None:
+                return {"ok": False, "error": "尚未選擇 spec"}
+            result = lookup_register(spec, str(query or ""), str(value_text or ""))
+            if result["ok"]:
+                result["spec_id"] = spec.spec_id
+            return result
 
     def get_spec_detail(self, spec_id: str | None = None) -> dict:
         """「Spec 全文」：完整解析內容＋原始 MD。spec_id 省略＝目前使用中的。"""
