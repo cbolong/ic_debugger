@@ -342,6 +342,11 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .spec-warnings summary { cursor: pointer; font-size: 12px; color: var(--c-warn-text); }
 .spec-warnings li { font-size: 12px; color: var(--c-warn-text); margin: 4px 0 0 18px; font-family: var(--font-mono); }
 
+/* ── 快速反查 ── */
+.lk-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.lk-form .btn-accent { height: 34px; }
+.lk-form .kv-label { margin-bottom: 3px; }
+
 /* ── Spec 全文 ── */
 .doc-head { margin-bottom: 16px; }
 .doc-meta { font-size: 12.5px; color: var(--c-text-muted); margin-top: 6px; line-height: 1.8; }
@@ -402,6 +407,7 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
     <div class="sidebar-section">分析</div>
     <button class="nav-item active" data-view="overview" onclick="nav('overview')">📊 總覽</button>
     <button class="nav-item" data-view="regs" onclick="nav('regs')">🧾 暫存器 <span class="nav-badge" id="navRegCount"></span></button>
+    <button class="nav-item" data-view="lookup" onclick="nav('lookup')">🔍 快速反查</button>
     <button class="nav-item" data-view="hex" onclick="nav('hex')">🔢 原始資料</button>
     <button class="nav-item" data-view="specdoc" onclick="openSpecDoc(null)">📖 Spec 全文</button>
     <div class="sidebar-section">設定</div>
@@ -428,6 +434,8 @@ var S = {
   expanded: {},     // 暫存器名稱 → 是否展開
   doc: null,        // Spec 全文檢視的內容（get_spec_detail 的 detail）
   docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
+  lk: { q: '', v: '', result: null, note: null, error: null,
+        history: [], spec_id: null },  // 快速反查（歷史限本次執行）
 };
 
 function esc(s){
@@ -465,6 +473,10 @@ function handle(resp, after){
   if (!resp.ok) { showToast(resp.error || '操作失敗', true); return; }
   if (resp.specs) { S.specs = resp.specs; S.doc = null; }  // spec 集合變動 → 全文快取作廢
   if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
+  // 換了 spec → 反查結果與歷史是舊 spec 解的，全部作廢
+  if (S.payload && S.lk.spec_id && S.payload.spec.id !== S.lk.spec_id) {
+    S.lk = { q: '', v: '', result: null, note: null, error: null, history: [], spec_id: null };
+  }
   renderAll();
   if (S.view === 'specdoc' && !S.doc) openSpecDoc(null);   // 正在看全文就馬上重抓
   if (after) after(resp);
@@ -615,6 +627,7 @@ function renderView(){
   }
   if (S.view === 'overview') el.innerHTML = renderOverview();
   else if (S.view === 'regs') el.innerHTML = renderRegs();
+  else if (S.view === 'lookup') el.innerHTML = renderLookup();
   else if (S.view === 'hex') el.innerHTML = renderHex();
   else if (S.view === 'specdoc') el.innerHTML = renderSpecDoc();
   else el.innerHTML = renderSpecs();
@@ -623,6 +636,11 @@ function renderView(){
     q.value = S.q;
     if (hadFocus) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
   }
+  // 反查輸入框：重繪後把使用者打到一半的內容還回去
+  var lq = document.getElementById('lkQuery');
+  var lv = document.getElementById('lkValue');
+  if (lq) lq.value = S.lk.q;
+  if (lv) lv.value = S.lk.v;
 }
 
 // ── 總覽 ───────────────────────────────────────────────────────────
@@ -886,6 +904,103 @@ function renderSpecDoc(){
   });
   return h;
 }
+
+// ── 快速反查：offset（或名稱）＋值 → 單筆解碼，免做 bin 檔 ──────────
+function renderLookup(){
+  // 預覽模式：塞示範結果讓截圖看得到成品
+  if (window.__PREVIEW__ && window.__PREVIEW__.lookup_demo && !S.lk.result && !S.lk.error && !S.lk.q) {
+    var d = window.__PREVIEW__.lookup_demo;
+    S.lk.q = 'SCTLR'; S.lk.v = '0x00C7187D';
+    S.lk.result = d.register; S.lk.note = d.note;
+  }
+  var specName = S.payload ? S.payload.spec.display_name : '';
+  var h = '<div class="card" style="margin-bottom:14px">';
+  h += '<div class="lk-form">';
+  h += '<span class="kv" style="flex:1; min-width:220px"><span class="kv-label">暫存器（名稱或 Offset）</span>' +
+       '<input id="lkQuery" class="search-input mono" style="max-width:none" list="lkRegs" placeholder="例：SCTLR 或 0x010"' +
+       ' oninput="S.lk.q=this.value" onchange="S.lk.q=this.value" onkeydown="if(event.key===\'Enter\')doLookup()"></span>';
+  h += '<span class="kv" style="flex:1.4; min-width:260px"><span class="kv-label">值（0x…／0b…／十進位）</span>' +
+       '<input id="lkValue" class="search-input mono" style="max-width:none" placeholder="例：0x00C7187D"' +
+       ' oninput="S.lk.v=this.value" onchange="S.lk.v=this.value" onkeydown="if(event.key===\'Enter\')doLookup()"></span>';
+  h += '<button class="btn-accent" onclick="doLookup()">解碼</button>';
+  h += '</div>';
+  h += '<datalist id="lkRegs">';
+  (S.payload ? S.payload.registers : []).forEach(function(r){
+    h += '<option value="' + esc(r.name) + '">' + r.offset_hex + '　' + esc(r.desc || '') + '</option>';
+  });
+  h += '</datalist>';
+  h += '<div class="doc-meta" style="margin-top:8px">依目前 spec「' + esc(specName) +
+       '」解碼；只有一組值要查時不用做 bin 檔。按 Enter 也可解碼。</div>';
+  h += '</div>';
+
+  if (S.lk.error) h += '<div class="banner">⚠ ' + esc(S.lk.error) + '</div>';
+  if (S.lk.note) h += '<div class="banner info">ℹ ' + esc(S.lk.note) + '</div>';
+
+  var r = S.lk.result;
+  if (r) {
+    h += '<div class="card" style="margin-bottom:12px">';
+    h += '<div class="detail-head" style="margin-bottom:2px">';
+    h += '<span class="reg-name" style="font-size:15px">' + esc(r.name) + '</span>';
+    h += '<span class="kv"><span class="kv-label">目前值</span>' +
+         '<span class="detail-val' + (r.differs === true ? ' val-accent' : '') + '">' + r.value_hex + '</span></span>';
+    h += '<span class="kv"><span class="kv-label">Reset</span>' +
+         '<span class="detail-val muted">' + (r.reset_hex || '—') + '</span></span>';
+    h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex + '</span>';
+    if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
+    if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
+    h += '</div>';
+    if (r.desc) h += '<div class="reg-desc" style="margin-bottom:4px">' + esc(r.desc) + '</div>';
+    h += bitRuler(r, 'lk');
+    h += '</div>';
+    h += fieldTable(r, 'lk');
+  } else if (!S.lk.error) {
+    h += '<div class="empty"><div class="big">🔍</div><p>輸入暫存器（可打名稱，會自動提示）與讀到的值，立即解碼<br>' +
+         '不用準備 bin 檔 —— 適合只想確認一兩個暫存器的時候。</p></div>';
+  }
+
+  if (S.lk.history.length) {
+    h += '<div class="section-title" style="margin-top:18px">最近查詢 <span class="muted">(' + S.lk.history.length + ')</span>' +
+         '　<button class="btn" style="font-size:11px; padding:3px 8px" onclick="clearLookupHistory()">清除</button></div>';
+    h += '<div class="table-wrap"><table><thead><tr><th>暫存器</th><th>Offset</th><th>值</th><th>狀態</th></tr></thead><tbody>';
+    S.lk.history.forEach(function(entry, i){
+      var hr = entry.register;
+      h += '<tr class="reg-row" onclick="lookupFromHistory(' + i + ')">' +
+           '<td class="reg-name">' + esc(hr.name) + '</td>' +
+           '<td class="mono muted">' + hr.offset_hex + '</td>' +
+           '<td class="mono' + (hr.differs === true ? ' val-accent' : '') + '">' + hr.value_hex + '</td>' +
+           '<td>' + (hr.differs === true ? '<span class="chip chip-diff">≠ Reset</span>'
+                     : hr.differs === false ? '<span class="chip chip-same">= Reset</span>'
+                     : '<span class="chip chip-none">無基準</span>') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  return h;
+}
+
+function doLookup(){
+  var q = document.getElementById('lkQuery');
+  var v = document.getElementById('lkValue');
+  if (q) S.lk.q = q.value;
+  if (v) S.lk.v = v.value;
+  api('lookup', S.lk.q, S.lk.v).then(function(resp){
+    if (!resp) return;
+    if (!resp.ok) { S.lk.error = resp.error || '查詢失敗'; S.lk.result = null; S.lk.note = null; }
+    else {
+      S.lk.error = null; S.lk.result = resp.register; S.lk.note = resp.note || null;
+      S.lk.spec_id = resp.spec_id || (S.payload ? S.payload.spec.id : null);
+      S.lk.history.unshift({ register: resp.register, note: resp.note || null });
+      if (S.lk.history.length > 10) S.lk.history.pop();
+    }
+    renderView();
+  }).catch(apiFail);
+}
+function lookupFromHistory(i){
+  var entry = S.lk.history[i];
+  if (!entry) return;
+  S.lk.result = entry.register; S.lk.note = entry.note; S.lk.error = null;
+  renderView();
+}
+function clearLookupHistory(){ S.lk.history = []; renderView(); }
 
 // ── 原始資料（hex dump + 暫存器對照）───────────────────────────────
 function renderHex(){
