@@ -16,7 +16,8 @@ core/
   bin_parser.py      raw dump 載入與取值（little-endian）
   analyzer.py        解碼引擎：Spec × Bin → UI payload（值全是格式化字串）
   report.py          payload → Markdown 報告
-  resources.py       資源定位（開發＝repo；onefile exe＝sys._MEIPASS）
+  resources.py       資源定位：resource_dir()＝打包資源（_MEIPASS）、
+                     app_dir()＝exe 所在目錄、spec_dirs()＝兩處的 specs/
   version.py         APP_NAME / APP_VERSION 單一來源
 ui/
   assets.py          唯一的 UI 文件：THEME_ROOT_CSS tokens ＋ MAIN_HTML（HTML/CSS/JS）
@@ -54,6 +55,9 @@ tests/               pytest；CI 的品質關卡
 8. **打包是 onefile 單一 exe**（ic_debugger_win.spec）：資源一律走
    core/resources.py 的 `resource_dir()`；寫檔（設定、log）一律走
    app_config.py 的使用者目錄，絕不可寫 exe 旁。upx 保持關閉。
+   **打包路徑單元測試看不到**（測試讀 repo 目錄、使用者跑 exe），所以
+   CI 會執行 `IC_Debugger.exe --selftest` 讓 exe 自己驗自己，失敗就不發
+   Release。改 .spec 的 datas／excludes 後，這一關就是唯一的守門員。
 9. **CI 的 paths-ignore 只忽略根目錄 `*.md`**：specs/**/*.md 是產品內容，
    改了必須觸發 build。不要改成 `**.md`。
 10. requirements 的 pythonnet／clr_loader／PyInstaller 版本 pin 是有前例的
@@ -70,7 +74,13 @@ tests/               pytest；CI 的品質關卡
     ＝`fmt_hex`/`fmt_bin`、數值解析＝`parse_int`。新功能要先找有沒有
     現成的可掛，不准為同一件事再寫第二支 function；真的要分岔就加
     參數，並讓測試鎖住兩條路輸出一致（如 test_lookup_identical_to_bin_path）。
-13. **系統列語意（使用者指定）**：「縮小」→ 縮到系統列（tray），
+13. **錯誤不准被吞掉**：`ui/apis.py` 每個對 JS 公開的方法都要掛 `@_guard`
+    （例外寫進 log ＋回傳可讀訊息）；`get_init` 一定要帶 `diag`（掃描過的
+    spec 目錄、存在與否、log 路徑），UI 空狀態靠它講出「為什麼沒有 spec」。
+    現場出過一次「畫面只說找不到 spec、完全查不出原因」，不要再走回去。
+14. **不載入任何外部資源**：IC 設計環境常是封閉網路，對外部字型／CDN 的
+    DNS 與連線逾時會讓啟動多等好幾秒。UI 只用系統內建字型。
+15. **系統列語意（使用者指定）**：「縮小」→ 縮到系統列（tray），
     「X」→ 真正關閉。與 ic-monitor 的行為相反，不要照 ic-monitor 改回去。
     tray 不可用（pystray 缺席）時縮小維持一般行為，不得擋啟動。
 

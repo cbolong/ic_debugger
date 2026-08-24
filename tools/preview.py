@@ -42,6 +42,26 @@ def build_preview_html(theme_attr: str = "") -> str:
     return html.replace("</head>", f"<script>window.__PREVIEW__ = {blob};</script></head>")
 
 
+def build_nospec_html() -> str:
+    """「找不到任何 spec」的診斷畫面 —— 這是 2026-08-23 現場出問題的那一頁，
+    要能一眼看出掃了哪些目錄、在不在。"""
+    init = {
+        "specs": [], "payload": None, "version": APP_VERSION,
+        "diag": {
+            "version": APP_VERSION, "frozen": True, "spec_count": 0,
+            "scan": [
+                {"dir": "C:\\Users\\ic\\AppData\\Local\\Temp\\_MEI123456\\specs",
+                 "exists": False, "loaded": 0, "names": []},
+                {"dir": "D:\\tools\\specs", "exists": False, "loaded": 0, "names": []},
+            ],
+            "log_path": "C:\\Users\\ic\\AppData\\Roaming\\IC_Debugger\\ic_debugger.log",
+        },
+    }
+    blob = json.dumps(init, ensure_ascii=False).replace("</", "<\\/")
+    html = build_main_html()
+    return html.replace("</head>", f"<script>window.__PREVIEW__ = {blob};</script></head>")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "preview_out"))
@@ -52,6 +72,8 @@ def main() -> int:
 
     html_path = out / "preview.html"
     html_path.write_text(build_preview_html(), encoding="utf-8")
+    nospec_path = out / "preview_nospec.html"
+    nospec_path.write_text(build_nospec_html(), encoding="utf-8")
     print(f"寫出 {html_path}")
     if args.html_only:
         return 0
@@ -119,6 +141,11 @@ def main() -> int:
         page.click('[data-view="regs"]')
         page.wait_for_timeout(100)
         shot("7_registers_dark.png")
+
+        # 「找不到 spec」的診斷畫面
+        page.goto(nospec_path.as_uri())
+        page.wait_for_selector(".empty")
+        shot("11_nospec_diag.png")
 
         browser.close()
 

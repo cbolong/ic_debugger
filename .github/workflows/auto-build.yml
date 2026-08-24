@@ -58,6 +58,26 @@ jobs:
       - name: Build EXE
         run: pyinstaller ic_debugger_win.spec --clean --noconfirm
 
+      # 打包後的自我驗證：單元測試讀的是 repo 目錄，看不見 exe 內部。
+      # 這一關直接執行剛做好的 exe，確認它真的載得到內建 spec
+      # （2026-08-23 現場回報「找不到任何 spec」後補上的守門員）。
+      - name: Self-test the packaged EXE
+        run: |
+          Write-Host "執行 dist/IC_Debugger.exe --selftest ..."
+          $p = Start-Process -FilePath "dist/IC_Debugger.exe" -ArgumentList "--selftest" `
+               -Wait -PassThru -NoNewWindow
+          if (Test-Path "selftest_report.json") {
+            Get-Content "selftest_report.json" | Write-Host
+          } else {
+            Write-Host "::error::exe 沒有產生 selftest_report.json"
+            exit 1
+          }
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::打包後的 exe 自我驗證失敗（見上方報告）"
+            exit 1
+          }
+          Write-Host "自我驗證通過：打包後的 exe 載得到內建 spec"
+
       - name: Create Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

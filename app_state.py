@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from core.bin_parser import BinFile
-from core.resources import builtin_specs_dir
+from core.resources import spec_dirs
 from core.spec_loader import Spec, load_builtin_specs, load_spec_file
 
 
@@ -19,13 +19,25 @@ class AppState:
     specs: dict[str, Spec] = field(default_factory=dict)  # 依插入順序＝顯示順序
     current_id: str | None = None
     binf: BinFile | None = None
+    # 上次 load_specs() 掃了哪些目錄、各找到幾份 —— 「找不到 spec」時就是靠它
+    # 告訴使用者原因（UI 空狀態與 --selftest 都讀這份，單一來源）
+    scan: list[dict] = field(default_factory=list)
 
     # ── spec 集合 ───────────────────────────────────────────────────
     def load_specs(self) -> None:
-        """重建 spec 集合：內建（specs/ 目錄）＋設定檔記錄的外部檔。"""
+        """重建 spec 集合：內建（打包的 specs/ ＋ exe 旁的 specs/）＋外部檔。"""
         specs: dict[str, Spec] = {}
-        for spec in load_builtin_specs(builtin_specs_dir()):
-            specs[self._unique_id(specs, spec.spec_id)] = spec
+        self.scan = []
+        for d in spec_dirs():
+            found = load_builtin_specs(d)
+            self.scan.append({
+                "dir": str(d),
+                "exists": d.is_dir(),
+                "loaded": len(found),
+                "names": [s.spec_id for s in found],
+            })
+            for spec in found:
+                specs[self._unique_id(specs, spec.spec_id)] = spec
 
         kept_paths: list[str] = []
         for path in self.cfg.get("external_specs", []):

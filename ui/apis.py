@@ -11,14 +11,16 @@ pywebview 會在 worker thread 呼叫這些方法：所有進入點都拿 self._
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
+import sys
 import threading
 from pathlib import Path
 
 import webview
 
-from app_config import save_config
+from app_config import config_dir, save_config
 from app_state import AppState
 from core.analyzer import build_payload, lookup_register, spec_detail, spec_summary
 from core.bin_parser import BinError, load_bin
@@ -26,6 +28,24 @@ from core.report import render_markdown
 from core.version import APP_VERSION
 
 log = logging.getLogger(__name__)
+
+
+def _guard(fn):
+    """所有 bridge 方法的防護網：例外一律寫進 log 並回成可讀的錯誤訊息。
+
+    沒有這層的話，Python 端丟例外只會讓 JS 的 promise 被拒絕，畫面停在
+    「找不到任何 spec」之類的空狀態，使用者完全不知道發生什麼事
+    —— 這正是 2026-08-23 現場回報的症狀。
+    """
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return fn(self, *args, **kwargs)
+        except Exception as e:
+            log.exception("API %s() 發生未預期的例外", fn.__name__)
+            return {"ok": False,
+                    "error": f"內部錯誤（{fn.__name__}）：{type(e).__name__}: {e}"}
+    return wrapper
 
 
 class Api:
@@ -52,14 +72,28 @@ class Api:
     def _save_cfg(self) -> None:
         save_config(self._state.cfg)
 
+    def _diagnostics(self) -> dict:
+        """「為什麼沒有 spec」的答案：掃了哪些目錄、在不在、各找到幾份。
+        UI 空狀態與 --selftest 共用這一份（單一來源）。"""
+        return {
+            "version": APP_VERSION,
+            "frozen": bool(getattr(sys, "frozen", False)),
+            "scan": list(self._state.scan),
+            "spec_count": len(self._state.specs),
+            "log_path": str(config_dir() / "ic_debugger.log"),
+        }
+
     # ── 初始化 ─────────────────────────────────────────────────────
+    @_guard
     def get_init(self) -> dict:
         with self._lock:
             resp = self._snapshot()
             resp["version"] = APP_VERSION
+            resp["diag"] = self._diagnostics()
             return resp
 
     # ── bin 匯入 ───────────────────────────────────────────────────
+    @_guard
     def import_bin(self) -> dict:
         win = self._window()
         if win is None:
@@ -87,6 +121,7 @@ class Api:
             return self._snapshot()
 
     # ── spec 操作 ──────────────────────────────────────────────────
+    @_guard
     def choose_spec(self, spec_id: str) -> dict:
         with self._lock:
             if not self._state.choose(str(spec_id)):
@@ -94,6 +129,7 @@ class Api:
             self._save_cfg()
             return self._snapshot()
 
+    @_guard
     def add_external_spec(self) -> dict:
         win = self._window()
         if win is None:
@@ -115,6 +151,7 @@ class Api:
                      path, len(spec.registers), len(spec.warnings))
             return self._snapshot()
 
+    @_guard
     def remove_external_spec(self, spec_id: str) -> dict:
         with self._lock:
             if not self._state.remove_external(str(spec_id)):
@@ -122,6 +159,7 @@ class Api:
             self._save_cfg()
             return self._snapshot()
 
+    @_guard
     def lookup(self, query: str, value_text: str) -> dict:
         """快速反查：offset（或暫存器名稱）＋值 → 單筆解碼（依目前 spec）。"""
         with self._lock:
@@ -133,6 +171,7 @@ class Api:
                 result["spec_id"] = spec.spec_id
             return result
 
+    @_guard
     def get_spec_detail(self, spec_id: str | None = None) -> dict:
         """「Spec 全文」：完整解析內容＋原始 MD。spec_id 省略＝目前使用中的。"""
         with self._lock:
@@ -142,13 +181,17 @@ class Api:
                 return {"ok": False, "error": f"找不到 spec：{spec_id or '(目前未選擇)'}"}
             return {"ok": True, "detail": spec_detail(spec, self._state.detail_binf(sid))}
 
+    @_guard
     def reload_specs(self) -> dict:
         with self._lock:
             self._state.load_specs()
             self._save_cfg()
-            return self._snapshot()
+            resp = self._snapshot()
+            resp["diag"] = self._diagnostics()
+            return resp
 
     # ── 報告匯出 ───────────────────────────────────────────────────
+    @_guard
     def export_report(self, only_differs: bool = False) -> dict:
         with self._lock:
             payload = self._payload()
@@ -177,6 +220,7 @@ class Api:
         return {"ok": True, "path": str(path)}
 
     # ── 其他 ───────────────────────────────────────────────────────
+    @_guard
     def set_theme(self, theme: str) -> dict:
         if theme not in ("light", "dark", "auto"):
             return {"ok": False, "error": f"未知主題：{theme}"}
@@ -185,6 +229,7 @@ class Api:
             self._save_cfg()
         return {"ok": True}
 
+    @_guard
     def log_js_error(self, msg: str, stack: str = "") -> dict:
         log.error("[JS] %s\n%s", msg, stack)
         return {"ok": True}
