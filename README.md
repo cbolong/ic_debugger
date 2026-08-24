@@ -32,6 +32,11 @@ spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自�
 5. 視窗按「縮小」會收到**右下角系統列**（雙擊圖示叫回來）；按「X」才是
    真正關閉。與 Reset 相同的保留位元預設收合，按「顯示保留位」展開。
 
+> **想加 spec 又不想等重新 build？** 在 `IC_Debugger.exe` 旁邊建一個
+> `specs\<廠商>\<型號>.md`，啟動時會自動一起載入。
+> 萬一畫面顯示「找不到任何 CPU spec」，上面會直接列出軟體搜尋過的目錄與
+> log 路徑，照著看就知道問題在哪。
+
 **bin 檔格式約定**：純 raw dump、little-endian，從 spec 的第一個暫存器
 （Offset 0x000）開始依序排列；每個暫存器佔 Size/8 bytes（預設 32-bit＝4 bytes）。
 

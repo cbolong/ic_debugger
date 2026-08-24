@@ -26,7 +26,15 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'unittest', 'pydoc', 'doctest'],
+    # 排除用不到的東西：onefile 每次啟動都要把整包解壓到暫存目錄，
+    # 體積直接反映在「開啟速度」上。只排除確定沒用到的，寧可保守
+    # （排錯了會在 CI 的 --selftest 那一關當場被抓到）。
+    excludes=[
+        'tkinter', 'unittest', 'pydoc', 'doctest', 'test', 'idlelib', 'lib2to3',
+        'pytest', '_pytest', 'playwright',          # 開發／測試工具，不進產品
+        'PIL.ImageQt', 'PIL.ImageTk', 'PIL.ImageShow', 'PIL.ImageGrab',
+        'PIL.ImageCms', 'PIL.ImageWin',             # PIL 只用來讀系統列的 PNG
+    ],
     noarchive=False,
 )
 

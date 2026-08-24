@@ -133,3 +133,14 @@ def test_api_methods_called_from_js_exist_in_python():
     missing = called - methods
     assert called, "抓不到任何 api() 呼叫，測試 regex 壞了"
     assert not missing, f"JS 呼叫了 Api 沒有的方法：{missing}"
+
+
+def test_no_external_resources():
+    """UI 不得載入任何外部資源。
+
+    設計如此：IC 設計環境常是封閉網路，對 CDN／字型伺服器的 DNS 與連線
+    逾時會讓啟動多等好幾秒（現場回報「開啟速度有點慢」的主因之一）。
+    """
+    html = build_main_html("")
+    external = re.findall(r'(?:href|src)="(https?://[^"]+)"', html)
+    assert not external, f"UI 引用了外部資源：{external}"

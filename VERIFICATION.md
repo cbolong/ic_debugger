@@ -71,7 +71,7 @@
 | 未載入 bin（或看非目前 spec）＝純 spec、無值 | ::test_spec_detail_builtin_raw_matches_file | 全暫存器斷言 |
 | 已載入 bin 時同頁疊上目前值，且值/differs 與暫存器頁**完全一致**（**設計如此**：兩頁共用 build_payload 單一解碼來源，不允許各算各的） | ::test_spec_detail_with_bin_overlays_values | 範例 bin 全暫存器逐一比對 |
 | **只有「目前使用中的 spec」疊值**（**設計如此**：bin 的 offset 對應跟著 spec 走，套到別份 spec 上值無意義） | test_app_state.py::test_detail_binf_only_for_current_spec | 目前／非目前／無 bin 三態 |
-| 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 10 節人工清單第 4/6 項） | — |
+| 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 11 節人工清單第 4/6 項） | — |
 
 ## 6. 快速反查（offset／名稱＋值 → 單筆解碼）
 
@@ -84,7 +84,7 @@
 | 值格式等價：0x／0X／十進位／0b／底線／空白 → 同一結果 | ::test_value_formats_equivalent_and_invalid | 6 種寫法＋6 種非法輸入 |
 | **與 bin 模式完全同源**（**設計如此**：共用 _register_dict，deep equality 一個 key 都不准差） | ::test_lookup_identical_to_bin_path、_lookup_r5_sample_case | 32/64-bit 逐顆深度比對＋R5 端到端 |
 | 同名暫存器取 offset 最小者 | ::test_duplicate_register_names_pick_first_by_offset | — |
-| 查詢歷史限本次執行、換 spec 即作廢（UI 行為） | tools/preview.py 截圖＋第 10 節人工清單 | — |
+| 查詢歷史限本次執行、換 spec 即作廢（UI 行為） | tools/preview.py 截圖＋第 11 節人工清單 | — |
 
 ## 7. App 狀態（spec 集合管理）
 
@@ -102,15 +102,31 @@
 | **用到的每個 var(--c-\*) 都有定義**（打錯 token 名顏色會靜默消失） | ::test_every_used_css_token_is_defined_in_light_root | HTML/CSS/JS 全文掃描 |
 | **每個 inline handler 都有對應函式**（改名/刪函式把按鈕改壞在此被抓） | ::test_every_inline_handler_has_declared_function | 全部 onclick/oninput/onchange |
 | JS 引用的靜態元素 id 都存在 | ::test_every_getelementbyid_target_exists | 全部 getElementById |
-| spec 下拉選單與 Spec 管理依廠商分組（**設計如此**：共用 groupSpecsByVendor，不准各分各的） | tools/preview.py 截圖＋第 10 節人工清單 | ARM／Andes／外部載入三組 |
+| spec 下拉選單與 Spec 管理依廠商分組（**設計如此**：共用 groupSpecsByVendor，不准各分各的） | tools/preview.py 截圖＋第 11 節人工清單 | ARM／Andes／外部載入三組 |
 | 六個視圖都有導覽入口與 render 分支 | ::test_all_views_have_render_branch_and_nav_entry | overview/regs/lookup/hex/specdoc/specs |
 | **JS 呼叫的每個 api 方法都存在於 Python Api**（橋接兩端同步） | ::test_api_methods_called_from_js_exist_in_python | 全部 api() 呼叫 × AST 解析 Api 類 |
 | Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
-| 保留位降噪：與 Reset 相同的保留／未定義列預設隱藏；**值≠Reset 或未定義非 0 的保留位強制顯示**（**設計如此**：安全網，不准藏掉異常）；隱藏數提示列可點擊展開；bit ruler 永遠顯示全部位元；**Spec 全文不套用隱藏**（稽核要完整，**設計如此**） | tools/preview.py 截圖＋第 10 節人工清單 | 展開 SCTLR 目視（14 個安靜保留位收起、藍色異常位保留） |
+| 保留位降噪：與 Reset 相同的保留／未定義列預設隱藏；**值≠Reset 或未定義非 0 的保留位強制顯示**（**設計如此**：安全網，不准藏掉異常）；隱藏數提示列可點擊展開；bit ruler 永遠顯示全部位元；**Spec 全文不套用隱藏**（稽核要完整，**設計如此**） | tools/preview.py 截圖＋第 11 節人工清單 | 展開 SCTLR 目視（14 個安靜保留位收起、藍色異常位保留） |
 | 渲染共用（防改 A 壞 B）：暫存器展開與快速反查共用 registerBlock()；狀態 chip 共用 statusChipHtml()（**設計如此**：同一資訊只准一份渲染程式，見 CLAUDE.md 不變條件 12） | 程式結構＋test_every_inline_handler_…（改名即紅） | — |
-| 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 10 張截圖） | overview/regs(展開)/lookup/hex/specs/specdoc(解析後+原文)×兩主題 |
+| 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 11 張截圖） | overview/regs(展開)/lookup/hex/specs/specdoc(解析後+原文)×兩主題 |
 
-## 9. 報告匯出
+## 9. 打包與啟動診斷（單元測試看不到的死角）
+
+單元測試讀的是 repo 目錄，使用者跑的是 exe —— 這一節專門補這段落差。
+（2026-08-23 現場回報「找不到任何 spec」而測試全綠，就是這個死角。）
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| spec 搜尋路徑：打包內 specs/ ＋ exe 旁 specs/，開發模式去重（**設計如此**：exe 旁的目錄同時是「免重 build 加 spec」與資源解壓失敗的救援路徑） | test_packaging.py::test_spec_dirs_dev_mode_is_deduped | 開發／打包兩種模式 |
+| 每個搜尋目錄都留下掃描紀錄（dir／exists／loaded／names） | ::test_scan_records_every_searched_dir | 全目錄逐一 |
+| 目錄不存在照實回報 exists=False，不丟例外 | ::test_scan_reports_missing_dir_without_raising | 缺目錄路徑 |
+| **打包後的 exe 自我驗證**：`--selftest` 載得到 ≥4 份 spec、零警告 → exit 0；載不到 → exit 1（CI 據此擋下 Release） | ::test_selftest_exits_zero_and_reports_four_specs、_fails_when_no_specs＋CI「Self-test the packaged EXE」步驟 | 正常／空目錄兩態；CI 每次 build 用真實 exe 跑 |
+| **每個 bridge 方法都掛 @_guard**（**設計如此**：例外必須進 log 並回可讀訊息，不准變成空畫面） | ::test_every_public_api_method_is_guarded（AST 掃描，新增方法忘了掛就紅） | Api 全部公開方法 |
+| get_init 一定帶 diag（scan／log_path／frozen／spec_count） | ::test_get_init_returns_diagnostics | 必要欄位逐一 |
+| 「找不到 spec」畫面顯示完整診斷表 | tools/preview.py 的 11_nospec_diag.png | 目錄不存在的情境 |
+| **不載入任何外部資源**（封閉網路啟動不卡） | test_ui.py::test_no_external_resources | HTML 全文掃描 |
+
+## 10. 報告匯出
 
 | 行為 | 驗證 |
 |---|---|
@@ -118,7 +134,7 @@
 | 表格 cell 的「\|」跳脫（enum 意義可含直線） | ::test_report_escapes_pipe_in_enum_label |
 | 無 bin 措辭、零差異時 only_differs 為空表 | ::test_report_no_bin_and_no_diff_wording |
 
-## 10. 無法自動化的部分 —— Windows 實機檢查清單
+## 11. 無法自動化的部分 —— Windows 實機檢查清單
 
 pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機驗。
 **每次 Release 後抽最新 exe 跑一遍：**
@@ -136,7 +152,7 @@ pywebview／WebView2／檔案對話框／onefile 打包只能在 Windows 實機�
 11. **系統列**：按「縮小」→ 視窗從工作列消失、右下角系統列出現晶片圖示（首次附提示气泡）；**雙擊圖示**或右鍵「開啟 IC Debugger」→ 視窗回來；右鍵「結束」→ 程式關閉。按「X」→ 程式真正關閉，且系統列圖示消失、工作管理員無殘留程序。
 12. `%APPDATA%\IC_Debugger\ic_debugger.log` 無 ERROR。
 
-## 11. 新增功能的規則
+## 12. 新增功能的規則
 
 新功能（或行為變更）**必須**：
 1. 在本檔加追溯列（含窮舉範圍說明）；

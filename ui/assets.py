@@ -110,15 +110,17 @@ setInterval(function(){
   }
 }, 1000);
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<!-- 刻意不載入任何外部字型／資源：IC 設計環境常是封閉網路，
+     對 fonts.googleapis.com 的 DNS 與連線逾時會讓啟動多等好幾秒。
+     改用 Windows 內建字型，離線也完全一致。 -->
 <style>
 __THEME_ROOT_CSS__
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --font-mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace; }
 body {
-  font-family: "Noto Sans TC", "Segoe UI", "Microsoft JhengHei", -apple-system, sans-serif;
+  /* 全部走系統內建字型（Windows 一定有），不依賴網路 */
+  font-family: "Microsoft JhengHei UI", "Microsoft JhengHei", "Segoe UI",
+               "PingFang TC", "Noto Sans TC", -apple-system, sans-serif;
   background: var(--c-bg-soft); color: var(--c-text);
   height: 100vh; display: flex; flex-direction: column; overflow: hidden;
   font-size: 14px;
@@ -441,6 +443,7 @@ var S = {
   q: '',
   onlyDiff: false,
   expanded: {},     // 暫存器名稱 → 是否展開
+  diag: null,       // 啟動診斷（掃了哪些 spec 目錄、各找到幾份）
   doc: null,        // Spec 全文檢視的內容（get_spec_detail 的 detail）
   docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
   lk: { q: '', v: '', result: null, note: null, error: null,
@@ -481,6 +484,7 @@ function api(name){
 function handle(resp, after){
   if (!resp || resp.cancelled) return;
   if (!resp.ok) { showToast(resp.error || '操作失敗', true); return; }
+  if (resp.diag) S.diag = resp.diag;
   if (resp.specs) { S.specs = resp.specs; S.doc = null; }  // spec 集合變動 → 全文快取作廢
   if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
   // 換了 spec → 反查結果與歷史是舊 spec 解的，全部作廢
@@ -500,6 +504,7 @@ function init(){
   if (window.__PREVIEW__) {
     S.specs = window.__PREVIEW__.specs || [];
     S.payload = window.__PREVIEW__.payload || null;
+    S.diag = window.__PREVIEW__.diag || null;
     prepPayload(); renderAll();
     return;
   }
@@ -656,13 +661,42 @@ function renderAll(){
   renderView();
 }
 
+// 「找不到 spec」不能只是一句話 —— 直接把掃描結果攤開，
+// 使用者／維護者一眼就知道是資源沒解壓、目錄不在、還是檔案被擋掉。
+function noSpecHtml(){
+  var h = '<div class="empty"><div class="big">📂</div>';
+  h += '<p><b>找不到任何 CPU spec</b><br>正常情況下軟體內建 ARM Cortex-R5／A55 與 Andes N25／N45 四份。</p></div>';
+  var d = S.diag;
+  if (d) {
+    h += '<div class="card" style="margin-top:14px">';
+    h += '<div class="section-title" style="margin-top:0">診斷資訊</div>';
+    h += '<div class="doc-meta">版本 v' + esc(d.version) +
+         '　執行方式：' + (d.frozen ? '打包後的 exe' : '開發模式') + '</div>';
+    h += '<div class="table-wrap" style="margin-top:10px"><table><thead><tr>' +
+         '<th>搜尋的 spec 目錄</th><th>目錄存在</th><th>載入份數</th></tr></thead><tbody>';
+    (d.scan || []).forEach(function(row){
+      h += '<tr><td class="mono" style="word-break:break-all">' + esc(row.dir) + '</td>' +
+           '<td>' + (row.exists ? '<span class="chip chip-same">是</span>'
+                                : '<span class="chip chip-warn">否</span>') + '</td>' +
+           '<td class="mono">' + row.loaded + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="doc-meta" style="margin-top:10px">' +
+         '<b>可以這樣救：</b>在上表第二個目錄（exe 旁邊）建立 <span class="mono">specs\\廠商\\型號.md</span>，' +
+         '或用「Spec 管理 → 載入外部 Spec」直接指定檔案。<br>' +
+         '詳細錯誤在 log：<span class="mono">' + esc(d.log_path) + '</span></div>';
+    h += '</div>';
+  }
+  return h;
+}
+
 function renderView(){
   var el = document.getElementById('view');
   // 重繪會換掉整個 innerHTML：先記住搜尋框是否持有焦點，繪完還回去
   var hadFocus = document.activeElement && document.activeElement.id === 'searchInput';
   if (!S.payload && S.view !== 'specs' && !(S.view === 'specdoc' && S.doc)) {
-    el.innerHTML = '<div class="empty"><div class="big">🕐</div><p>' +
-      (S.inited ? '找不到任何 spec：請到「Spec 管理」載入' : '載入中…') + '</p></div>';
+    el.innerHTML = S.inited ? noSpecHtml() :
+      '<div class="empty"><div class="big">🕐</div><p>載入中…</p></div>';
     return;
   }
   if (S.view === 'overview') el.innerHTML = renderOverview();
