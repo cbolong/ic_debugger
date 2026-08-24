@@ -357,3 +357,22 @@ def test_a55_reset_values_are_not_fabricated():
     with_reset = [r for r in spec.registers if r.reset is not None]
     assert [r.name for r in with_reset] == ["MIDR_EL1"]
     assert "尚未用 A55 TRM 確認" in with_reset[0].desc
+
+
+def test_r5_reset_values_are_not_fabricated():
+    """R5 同理：沒對照過 DDI 0460D 的重置值一律 `-`。
+
+    CTR 與 CPACR 原本寫死 0x8003C003／0x00000000 —— 前者隨這顆核心配置的
+    快取而變、後者在 ARMv7 是 IMPLEMENTATION DEFINED，兩個都不是固定值，
+    寫死會讓 UI 標出假的「≠ Reset」。只有 MIDR 留值（可由 r1p2 ＋ 部件編號
+    0xC15 推出），且必須在 Description 交代來歷。
+    """
+    spec = _spec("arm/cortex_r5.md")
+    with_reset = [r for r in spec.registers if r.reset is not None]
+    assert [r.name for r in with_reset] == ["MIDR"]
+    assert "尚未用 DDI 0460D 確認" in with_reset[0].desc
+    ctr = _regs(spec)["CTR"]
+    fmt = next(f for f in ctr.fields if f.name == "Format")
+    assert fmt.reset == 0b100, "Format 是 ARMv7 架構固定值，可以留"
+    for name in ("CWG", "ERG", "DminLine", "L1Ip", "IminLine"):
+        assert next(f for f in ctr.fields if f.name == name).reset is None, name
