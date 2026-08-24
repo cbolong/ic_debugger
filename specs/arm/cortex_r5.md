@@ -52,7 +52,7 @@
 ## MIDR
 - Offset: 0x000
 - Reset: 0x411FC152
-- Description: Main ID Register — CPU 識別碼
+- Description: Main ID Register — CPU 識別碼（Reset 值 0x411FC152 是由檔頭宣告的 r1p2 與 Cortex-R5 部件編號 0xC15 推得，尚未用 DDI 0460D 確認）
 
 | Bits  | Field        | Access | Reset | Description |
 |-------|--------------|--------|-------|-------------|
@@ -73,19 +73,19 @@
 
 ## CTR
 - Offset: 0x004
-- Reset: 0x8003C003
-- Description: Cache Type Register — 快取架構資訊
+- Reset: -
+- Description: Cache Type Register — 快取架構資訊（值隨這顆核心實際配置的快取而定，不是固定值；要填 Reset 請查該專案的 R5 組態與 DDI 0460D）
 
 | Bits  | Field    | Access | Reset | Description |
 |-------|----------|--------|-------|-------------|
-| 31:29 | Format   | RO     | 0b100 | 暫存器格式 |
+| 31:29 | Format   | RO     | 0b100 | 暫存器格式（ARMv7 架構固定值） |
 | 28    | RES0     | RO     | 0     | 保留 |
-| 27:24 | CWG      | RO     | 0x0   | Cache writeback granule |
-| 23:20 | ERG      | RO     | 0x0   | Exclusives reservation granule |
-| 19:16 | DminLine | RO     | 0x3   | 最小 D-cache line（log2 words；3 = 32 bytes） |
-| 15:14 | L1Ip     | RO     | 0b11  | L1 I-cache 索引／標籤策略 |
+| 27:24 | CWG      | RO     | -     | Cache writeback granule（依實作） |
+| 23:20 | ERG      | RO     | -     | Exclusives reservation granule（依實作） |
+| 19:16 | DminLine | RO     | -     | 最小 D-cache line（log2 words；常見的 3 = 32 bytes，依組態） |
+| 15:14 | L1Ip     | RO     | -     | L1 I-cache 索引／標籤策略（依實作） |
 | 13:4  | RES0     | RO     | 0     | 保留 |
-| 3:0   | IminLine | RO     | 0x3   | 最小 I-cache line（log2 words；3 = 32 bytes） |
+| 3:0   | IminLine | RO     | -     | 最小 I-cache line（log2 words；常見的 3 = 32 bytes，依組態） |
 
 ### Enum: Format
 - 0b100: ARMv7 格式
@@ -254,14 +254,14 @@
 
 ## CPACR
 - Offset: 0x018
-- Reset: 0x00000000
-- Description: Coprocessor Access Control Register — 協同處理器（FPU）存取權限
+- Reset: -
+- Description: Coprocessor Access Control Register — 協同處理器（FPU）存取權限（ARMv7 的 CPACR 重置值是 IMPLEMENTATION DEFINED，未經 DDI 0460D 確認前不填）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:24 | RES0  | RO     | 0     | 保留（R5 未實作 ASEDIS／D32DIS，RAZ/WI） |
-| 23:22 | cp11  | RW     | 0b00  | cp11（FPU 資料傳輸）存取權限 |
-| 21:20 | cp10  | RW     | 0b00  | cp10（FPU）存取權限 |
+| 23:22 | cp11  | RW     | -     | cp11（FPU 資料傳輸）存取權限（重置值依實作） |
+| 21:20 | cp10  | RW     | -     | cp10（FPU）存取權限（重置值依實作） |
 | 19:0  | RES0  | RO     | 0     | cp0–cp9 存取控制（R5 未實作這些協同處理器，RAZ/WI） |
 
 ### Enum: cp11
