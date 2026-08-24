@@ -264,7 +264,7 @@ def test_spec_detail_builtin_raw_matches_file():
     assert detail["summary"]["id"] == "cortex_r5"
     assert detail["raw"] == path.read_text(encoding="utf-8-sig")  # 原文一字不差
     assert detail["raw_error"] is None
-    assert len(detail["registers"]) == detail["summary"]["register_count"] == 17
+    assert len(detail["registers"]) == detail["summary"]["register_count"] == 18
     # 全文模式沒有 bin：不得出現任何值
     assert all(r["value_hex"] is None for r in detail["registers"])
 
@@ -299,3 +299,45 @@ def test_spec_detail_with_bin_overlays_values():
     assert any(v is not None for _, v, _ in got)  # 確實有值
     # 原文照舊、不受 bin 影響
     assert detail["raw"] == (ROOT / "specs" / "arm" / "cortex_r5.md").read_text(encoding="utf-8-sig")
+
+
+# ── 官方文件對照出處在 payload 三條路徑上的一致性 ────────────────────
+# 設計如此：解碼只有 _register_dict 一支（不變條件 12），所以 verified 也
+# 必須三條路（bin 分析／Spec 全文／快速反查）看到完全同一個值。
+
+def _verified_map(regs):
+    return {r["name"]: r["verified"] for r in regs}
+
+
+def test_verified_flows_through_all_three_paths():
+    from core.analyzer import lookup_register
+    from core.bin_parser import load_bin
+    spec = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
+    binf = load_bin(ROOT / "examples" / "sample_r5.bin")
+    a = _verified_map(build_payload(spec, binf)["registers"])
+    b = _verified_map(spec_detail(spec, binf)["registers"])
+    assert a == b
+    for name, v in a.items():
+        r = lookup_register(spec, name, "0x0")
+        assert r["ok"] and r["register"]["verified"] == v, name
+    assert a["TCMTR"], "TCMTR 的官方出處在 payload 裡不見了"
+
+
+def test_verified_count_matches_registers():
+    """spec_summary 的 verified_count 必須等於實際標了出處的顆數，
+    四份內建 spec 全掃 —— 這個數字是使用者判斷「能不能信」的依據。"""
+    from core.analyzer import spec_summary
+    from core.spec_loader import load_builtin_specs
+    for spec in load_builtin_specs(ROOT / "specs"):
+        s = spec_summary(spec)
+        assert s["verified_count"] == sum(1 for r in spec.registers if r.verified)
+        assert 0 <= s["verified_count"] <= s["register_count"]
+
+
+def test_verified_absent_is_empty_string_not_none():
+    """未標出處一律是空字串：JS 端只做 truthy 判斷，null/undefined 會讓
+    『未對照』的提示靜默消失。"""
+    spec = parse_spec_text(
+        "# CPU: T\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
+    reg = spec_detail(spec)["registers"][0]
+    assert reg["verified"] == "" and reg["verified"] is not None

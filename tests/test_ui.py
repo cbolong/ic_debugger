@@ -144,3 +144,31 @@ def test_no_external_resources():
     html = build_main_html("")
     external = re.findall(r'(?:href|src)="(https?://[^"]+)"', html)
     assert not external, f"UI 引用了外部資源：{external}"
+
+
+def test_verify_state_rendered_from_single_source():
+    """「有沒有對照過官方文件」只准有一支渲染程式。
+
+    設計如此：spec 卡片、Spec 全文標頭、暫存器展開、Spec 全文逐顆——四個
+    地方顯示同一種資訊，若各寫各的，改一處就會與其他處說法不一致
+    （CLAUDE.md 不變條件 12）。
+    """
+    body = _scripts(build_main_html(""))[1]
+    assert body.count("function verifyChipHtml(") == 1
+    assert body.count("function verifyRegChipHtml(") == 1
+    # spec 層級（Spec 管理卡片＋Spec 全文標頭）
+    assert body.count("+= verifyChipHtml(s)") == 2
+    # 暫存器層級（registerBlock＋Spec 全文逐顆）
+    assert body.count("+= verifyRegChipHtml(r,") == 2
+
+
+def test_unverified_register_says_so_on_audit_page():
+    """稽核頁面（Spec 全文）對「沒對照過原廠文件」必須明講，不准沉默。
+
+    現場事故（2026-08-24）：R5 官方 TRM 有 TCMTR，本工具的 spec 沒有，
+    而畫面上沒有任何線索顯示這份 spec 未經原廠文件核對。
+    """
+    body = _scripts(build_main_html(""))[1]
+    assert "位元定義對照自：" in body
+    assert "未對照官方文件" in body
+    assert "位元定義尚未對照官方 0/" in body

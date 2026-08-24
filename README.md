@@ -14,7 +14,22 @@ register 值（raw bin）匯入後，依內建的 CPU spec 自動解碼每一個
 | Andes | N45 | RISC-V RV32 標準機器模式 CSR |
 
 spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自動打包出新的 exe。
-每份 spec 都標了 `Status`（哪些欄位已核對原廠文件、哪些待補），app 內直接看得到。
+
+> ⚠ **這四份 spec 各驗到什麼程度，app 會直接標在畫面上**（Spec 管理卡片顯示
+> 「位元定義已對照官方 X/N」，「Spec 全文」頁每顆暫存器標出處或「未對照官方文件」）：
+>
+> | Spec | 位元定義已對照 | 對照的官方文件 |
+> |---|---|---|
+> | Andes N25／N45 | 20/20 | RISC-V 特權架構規格 v1.11（ratified） |
+> | ARM Cortex-A55 | 14/20 | Arm 機器可讀架構規格（sail-arm bitfield 定義） |
+> | ARM Cortex-R5 | 1/18 | ARM DDI 0460D（Cortex-R5 TRM）— 僅 TCMTR |
+>
+> 「位元定義已對照」只保證**欄位切在第幾位元**是照官方文件抄的。它不保證
+> 暫存器清單完整、也不保證 Reset 值正確 —— 那些只有晶片 TRM／datasheet 說了算，
+> 而 `TCMTR`、`micm_cfg` 這類實作相關暫存器只存在於 TRM。每份 spec 的檔頭
+> 註解都列了「已驗／未驗／還缺哪些暫存器」。有原廠文件的人請照
+> [specs/README.md](specs/README.md) 的流程補，對完一顆就在該顆加一行
+> `- Verified: <文件編號 §章節/表號>`。
 
 **下載**：到 [Releases](../../releases) 抓最新 `build-*` 的 `IC_Debugger.exe`，
 單一執行檔，下載後直接執行。
@@ -46,7 +61,9 @@ spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自�
    （可把該文件內附的指示範本連同 spec 原文交給 AI 產生；目錄規則見
    [specs/README.md](specs/README.md)）。
 2. 先在 app 內「Spec 管理 → 載入外部 Spec」載入測試，把解析警告清乾淨。
-3. 放進 `specs/<廠商>/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
+3. 用「Spec 全文」對著原廠文件逐顆核對，核完一顆就補一行
+   `- Verified: <文件編號 §章節/表號>`（沒真的對照過就不要寫）。
+4. 放進 `specs/<廠商>/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
 
 ## 開發快速上手
 

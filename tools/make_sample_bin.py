@@ -16,6 +16,7 @@ from pathlib import Path
 WORDS = [
     ("MIDR",   0x411FC152),  # r1p2，同 reset
     ("CTR",    0x8003C003),  # 同 reset
+    ("TCMTR",  0x00010001),  # ATCM x1、BTCM x1
     ("MPUIR",  0x00000C00),  # 12 個 MPU 區域
     ("MPIDR",  0x80000000),  # 多處理器格式、核心 0
     ("SCTLR",  0x00C7187D),  # M/C/I/Z/BR=1 + RES1 位元
