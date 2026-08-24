@@ -172,3 +172,15 @@ def test_unverified_register_says_so_on_audit_page():
     assert "位元定義對照自：" in body
     assert "未對照官方文件" in body
     assert "位元定義尚未對照官方 0/" in body
+
+
+def test_reset_chip_says_when_verdict_is_partial():
+    """「Reset —」旁邊不可以出現沒有但書的「= Reset」。
+
+    設計如此：暫存器層級沒有 Reset 時，比對只用得到有寫 Reset 的欄位，
+    chip 必須加註「（部分欄位）」，且三個掛 chip 的地方共用同一支。
+    """
+    body = _scripts(build_main_html(""))[1]
+    assert body.count("function resetQualifier(") == 1
+    assert body.count("resetQualifier(r)") == 5  # 宣告 1 ＋ 使用 4
+    assert "（部分欄位）" in body

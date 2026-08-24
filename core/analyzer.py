@@ -147,12 +147,17 @@ def _register_dict(reg: Register, data: bytes | None) -> dict:
     rows.sort(key=lambda r: r["msb"], reverse=True)
 
     reg_differs: bool | None = None
+    # reset_partial：暫存器層級沒有 Reset，判定是靠「有寫 Reset 的那幾個欄位」
+    # 推出來的。UI 必須把這件事講出來——否則畫面會出現「Reset —」旁邊掛
+    # 「= Reset」的矛盾（沒有基準卻說相符）。
+    reset_partial = False
     if value is not None:
         if reg.reset is not None:
             reg_differs = value != reg.reset
         else:
             field_diffs = [r["differs"] for r in rows if r["differs"] is not None]
             reg_differs = any(field_diffs) if field_diffs else None
+            reset_partial = reg_differs is not None
 
     return {
         "name": reg.name,
@@ -167,6 +172,7 @@ def _register_dict(reg: Register, data: bytes | None) -> dict:
         "value_bits": f"{value:0{reg.size}b}" if value is not None else None,
         "reset_hex": fmt_hex(reg.reset, reg.size) if reg.reset is not None else None,
         "differs": reg_differs,
+        "reset_partial": reset_partial,
         "nonzero_undef": any(r.get("nonzero") for r in undef_rows),
         "rows": rows,
     }

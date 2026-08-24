@@ -668,9 +668,16 @@ function groupSpecsByVendor(specs){
 function statusChipHtml(r, always){
   if (!always && !(S.payload && S.payload.bin)) return '';
   if (!r.covered) return '<span class="chip chip-warn">' + (r.partial ? '截斷' : '未涵蓋') + '</span>';
-  if (r.differs === true) return '<span class="chip chip-diff">≠ Reset</span>';
-  if (r.differs === false) return '<span class="chip chip-same">= Reset</span>';
+  if (r.differs === true) return '<span class="chip chip-diff">≠ Reset' + resetQualifier(r) + '</span>';
+  if (r.differs === false) return '<span class="chip chip-same">= Reset' + resetQualifier(r) + '</span>';
   return '<span class="chip chip-none">無基準</span>';
+}
+
+// 暫存器層級沒有 Reset 時，比對只用得到「有寫 Reset 的那幾個欄位」——
+// 不講出來，畫面就會變成「Reset —」旁邊掛「= Reset」的矛盾。
+// 三個掛 Reset chip 的地方共用這一支（CLAUDE.md 不變條件 12）。
+function resetQualifier(r){
+  return r.reset_partial ? '（部分欄位）' : '';
 }
 
 // 官方文件對照狀態的唯一渲染來源（spec 卡片、Spec 全文共用——不准各寫各的）。
@@ -896,7 +903,7 @@ function registerBlock(r, ri, opts){
   h += '<span class="kv"><span class="kv-label">Reset</span>' +
        '<span class="detail-val muted">' + (r.reset_hex || '—') + '</span></span>';
   h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex + '</span>';
-  if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
+  if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset' + resetQualifier(r) + '</span>';
   if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
   h += verifyRegChipHtml(r, false);
   h += '</div>';
@@ -1045,7 +1052,7 @@ function renderSpecDoc(){
     if (r.value_hex) {
       h += '<span class="doc-reg-meta">目前值 <b class="' + (r.differs === true ? 'val-accent' : '') + '">' +
            r.value_hex + '</b></span>';
-      if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
+      if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset' + resetQualifier(r) + '</span>';
     }
     h += verifyRegChipHtml(r, true);
     h += '</div>';

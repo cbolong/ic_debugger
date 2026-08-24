@@ -11,7 +11,7 @@ import random
 
 from core.analyzer import _uncovered_ranges, build_payload, spec_detail
 from core.bin_parser import BinFile, word_at
-from core.spec_loader import Register, Field, load_spec_file, parse_spec_text
+from core.spec_loader import Register, Field, Spec, load_spec_file, parse_spec_text
 
 from pathlib import Path
 
@@ -341,3 +341,49 @@ def test_verified_absent_is_empty_string_not_none():
         "# CPU: T\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
     reg = spec_detail(spec)["registers"][0]
     assert reg["verified"] == "" and reg["verified"] is not None
+
+
+# ── 「沒有暫存器層級 Reset」時的判定來源標示 ────────────────────────
+# 現場問題：把沒憑據的 reset 拿掉之後，畫面出現「Reset —」旁邊掛「= Reset」
+# 的矛盾。判定其實是靠有寫 Reset 的那幾個欄位推出來的，這件事要講出來。
+
+def _reg_by_name(payload, name):
+    return next(r for r in payload["registers"] if r["name"] == name)
+
+
+def test_reset_partial_flag_truth_table():
+    """reset_partial 只在「暫存器沒 Reset、但欄位有 Reset 撐出判定」時為 True。"""
+    from core.bin_parser import BinFile
+
+    def build(reg_reset, field_reset):
+        spec = Spec(spec_id="t", cpu="T", width=32, registers=[Register(
+            name="R", offset=0, size=32, reset=reg_reset,
+            fields=[Field(name="F", msb=31, lsb=0, reset=field_reset)])])
+        binf = BinFile(path="x", name="x.bin", data=b"\x00\x00\x00\x00")
+        return _reg_by_name(build_payload(spec, binf), "R")
+
+    both = build(0, 0)                       # 暫存器有 Reset → 直接比，不是部分
+    assert both["differs"] is False and both["reset_partial"] is False
+    only_field = build(None, 0)              # 只有欄位有 Reset → 部分
+    assert only_field["differs"] is False and only_field["reset_partial"] is True
+    only_field_diff = build(None, 1)
+    assert only_field_diff["differs"] is True and only_field_diff["reset_partial"] is True
+    neither = build(None, None)              # 全未知 → 無基準，不是部分
+    assert neither["differs"] is None and neither["reset_partial"] is False
+
+
+def test_reset_partial_false_without_bin():
+    """沒有 bin 就沒有比對，reset_partial 一律 False（Spec 全文模式）。"""
+    spec = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
+    assert all(r["reset_partial"] is False for r in spec_detail(spec)["registers"])
+
+
+def test_r5_ctr_shows_partial_after_reset_cleanup():
+    """R5 的 CTR 拿掉沒憑據的 reset 後：暫存器層級無基準，但 Format 欄位
+    仍有架構固定值，所以判定必須標成「部分欄位」。"""
+    from core.bin_parser import load_bin
+    spec = load_spec_file(ROOT / "specs" / "arm" / "cortex_r5.md")
+    binf = load_bin(ROOT / "examples" / "sample_r5.bin")
+    ctr = _reg_by_name(build_payload(spec, binf), "CTR")
+    assert ctr["reset_hex"] is None and ctr["differs"] is not None
+    assert ctr["reset_partial"] is True

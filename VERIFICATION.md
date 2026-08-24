@@ -64,6 +64,7 @@
 | covered／partial（截斷）判定 | test_exhaustive_analyzer.py::test_truncation_sweep_every_length | 16-byte spec（32/64 混合）**bin 長度 0–18 每個長度全驗**，含統計一致性與 hexdump note 三態 |
 | differs 判定（值/Reset 已知未知的所有組合；**設計如此**：全未知＝「無基準」None 而非 False；欄位 Reset 明寫優先於推導） | ::test_differs_truth_table、_differs_none_when_bin_absent_or_uncovered | **8 格真值表逐格**＋無 bin/未涵蓋 |
 | 欄位 Reset 從暫存器 Reset 自動推導（**設計如此**：表格可少抄） | 同上（真值表 3、4 列） | — |
+| 暫存器層級沒有 Reset 時，判定只用得到有寫 Reset 的欄位 → `reset_partial` 為 True，chip 加註「（部分欄位）」（**設計如此**：不可以出現「Reset —」旁邊掛沒有但書的「= Reset」） | test_exhaustive_analyzer.py::test_reset_partial_flag_truth_table、_reset_partial_false_without_bin、_r5_ctr_shows_partial_after_reset_cleanup、test_ui.py::test_reset_chip_says_when_verdict_is_partial | **4 格真值表**＋無 bin＋R5 實例＋UI 單一渲染來源 |
 | 未定義位元自動補列 | ::test_uncovered_ranges_vs_bruteforce_random_layouts | 32/64-bit 各 150 組隨機佈局，與 set 補集暴力對照＋不相鄰驗證 |
 | rows 完整分割不變條件（bit ruler／欄位表的前提） | ::test_rows_always_partition_register_exactly | 32/64-bit 各 60 組隨機佈局：覆蓋全部 bit、無重疊、msb 降冪 |
 | 未定義位元非 0 提示 | ::test_nonzero_undef_flag | 0／非 0 兩態 |
