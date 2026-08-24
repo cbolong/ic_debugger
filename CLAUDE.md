@@ -48,6 +48,11 @@ tests/               pytest；CI 的品質關卡
    **spec 內容的紅線**：不確定的值一律寫 `-`，實作定義暫存器在沒有原廠文件前
    只能留在檔尾 HTML 註解的待補清單，不准憑印象填進表格 —— 寫錯的 spec 會讓
    分析結果整個錯，比沒有 spec 更危險。
+   **出處紅線（2026-08-24 事故）**：逐欄對照過原廠文件的暫存器才可以加
+   `- Verified: <文件編號 §章節/表號>`；憑架構知識（ARM ARM／RISC-V Privileged
+   Spec）整理的一律不准標，`# Status:` 必須掛 `⚠`。架構規格 ≠ 晶片 TRM：
+   `TCMTR` 這種實作相關暫存器只在 TRM 裡，只讀架構規格必然漏列。UI 的
+   `verifyChipHtml`／`verifyRegChipHtml` 就是把這件事攤在畫面上，不准拿掉。
 6. **bin 格式契約**：純 raw dump、little-endian、spec 的 Offset＝bin 位元組
    位移（從 0 起）。改這個契約要先跟使用者確認，並同步 SPEC_FORMAT.md 與 README。
 7. **WebView2 不回報 OS 深色**到 prefers-color-scheme：深色是 Python 偵測後

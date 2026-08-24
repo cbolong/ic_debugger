@@ -370,6 +370,7 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .doc-reg-name { font-family: var(--font-mono); font-weight: 700; font-size: 14.5px; }
 .doc-reg-meta { font-size: 12px; color: var(--c-text-muted); font-family: var(--font-mono); }
 .doc-reg-desc { font-size: 12.5px; color: var(--c-text-muted); padding: 8px 12px 0; }
+.doc-reg-verify { font-size: 12px; color: var(--c-success-text); padding: 6px 12px 0; line-height: 1.7; }
 .rawspec {
   background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px;
   box-shadow: var(--c-elevate); padding: 16px 18px; overflow-x: auto;
@@ -672,6 +673,23 @@ function statusChipHtml(r, always){
   return '<span class="chip chip-none">無基準</span>';
 }
 
+// 官方文件對照狀態的唯一渲染來源（spec 卡片、Spec 全文共用——不准各寫各的）。
+// 使用者真正要回答的問題是「這份 spec 可不可信」：沒對照過原廠文件的內容
+// 一律要講出來，不准用沉默假裝已驗證（CLAUDE.md 不變條件 5）。
+function verifyChipHtml(s){
+  var n = s.register_count || 0, v = s.verified_count || 0;
+  if (n && v === n) return '<span class="chip chip-builtin">已對照官方 ' + v + '/' + n + '</span>';
+  if (v) return '<span class="chip chip-warn">已對照官方 ' + v + '/' + n + '</span>';
+  return '<span class="chip chip-none">尚未對照官方 0/' + n + '</span>';
+}
+
+// 單顆暫存器的對照狀態。always=false 時「未對照」不出 chip（每顆都掛灰標籤
+// 只會變成雜訊）；Spec 全文是稽核頁面，兩種狀態都必須明講。
+function verifyRegChipHtml(r, always){
+  if (r.verified) return '<span class="chip chip-builtin" title="' + esc(r.verified) + '">已對照官方</span>';
+  return always ? '<span class="chip chip-none">未對照官方文件</span>' : '';
+}
+
 function toggleHideRes(){ S.hideRes = !S.hideRes; renderView(); }
 
 // ────────────────────────────────────────────────────────────────────
@@ -878,6 +896,7 @@ function registerBlock(r, ri, opts){
   h += '<span class="detail-meta">' + r.size + '-bit ・ Offset ' + r.offset_hex + '</span>';
   if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
   if (r.nonzero_undef) h += '<span class="chip chip-warn">未定義位元有非 0 值</span>';
+  h += verifyRegChipHtml(r, false);
   h += '</div>';
   if (opts.showDesc && r.desc) h += '<div class="reg-desc" style="margin-bottom:4px">' + esc(r.desc) + '</div>';
   h += bitRuler(r, ri);
@@ -980,6 +999,7 @@ function renderSpecDoc(){
   h += '<span class="chip ' + (s.origin === 'external' ? 'chip-ext' : 'chip-builtin') + '">' +
        (s.origin === 'external' ? '外部載入' : '內建（隨 exe 打包）') + '</span>';
   h += '<span class="chip chip-same">' + s.register_count + ' 個暫存器</span>';
+  h += verifyChipHtml(s);
   if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個解析警告</span>';
   h += '</div>';
   var overlaid = S.doc.registers.some(function(r){ return r.value_hex; });
@@ -1025,8 +1045,12 @@ function renderSpecDoc(){
            r.value_hex + '</b></span>';
       if (r.differs === true) h += '<span class="chip chip-diff">≠ Reset</span>';
     }
+    h += verifyRegChipHtml(r, true);
     h += '</div>';
     if (r.desc) h += '<div class="doc-reg-desc">' + esc(r.desc) + '</div>';
+    // 出處只在「有對照過」時展開一行（每顆都印一句「沒對照」＝17 行雜訊，
+    // 未對照用標頭那顆 chip 講就夠了）
+    if (r.verified) h += '<div class="doc-reg-verify">✔ 已對照官方文件：' + esc(r.verified) + '</div>';
     h += fieldTable(r, 'doc' + ri, { expandEnums: true });
     h += '</div>';
   });
@@ -1184,6 +1208,7 @@ function specCard(s, cur){
     h += '<span class="chip ' + (s.origin === 'external' ? 'chip-ext' : 'chip-builtin') + '">' +
          (s.origin === 'external' ? '外部' : '內建') + '</span>';
     h += '<span class="chip chip-same">' + s.register_count + ' 個暫存器</span>';
+    h += verifyChipHtml(s);
     if (s.warnings.length) h += '<span class="chip chip-warn">' + s.warnings.length + ' 個警告</span>';
     if (isCur) h += '<span class="chip chip-diff">使用中</span>';
     h += '<span class="spec-card-actions">';

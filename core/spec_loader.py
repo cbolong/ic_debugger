@@ -61,6 +61,9 @@ class Register:
     size: int
     reset: int | None = None
     desc: str = ""
+    # 已對照的官方文件出處（`- Verified:`）。空字串＝尚未對照原廠文件，
+    # UI 的稽核頁面會明確標出來 —— 使用者必須知道哪些欄位可以信。
+    verified: str = ""
     fields: list[Field] = dc_field(default_factory=list)
     line: int = 0  # 來源行號（警告訊息用）
 
@@ -210,7 +213,7 @@ def parse_spec_text(text: str, spec_id: str, path: str = "", origin: str = "buil
         # ── 列舉項目 '- 值: 意義' ──────────────────────────────────
         if enum_field is not None and reg is not None:
             m = re.match(r"^[-*]\s+([^:：]+)[:：]\s*(.+)$", stripped)
-            if m and m.group(1).strip().lower() in {"offset", "size", "reset", "description"}:
+            if m and m.group(1).strip().lower() in {"offset", "size", "reset", "description", "verified"}:
                 m = None  # 這是暫存器屬性不是列舉值 → 結束 enum 區塊往下處理
             if m:
                 v = parse_int(_clean_cell(m.group(1)))
@@ -249,6 +252,8 @@ def parse_spec_text(text: str, spec_id: str, path: str = "", origin: str = "buil
                 reg.reset = v
             elif key == "description":
                 reg.desc = val
+            elif key == "verified":
+                reg.verified = val
             else:
                 warn(f"{loc}:{ln}: {reg.name} 有不認得的屬性「{key}」，已略過")
             continue

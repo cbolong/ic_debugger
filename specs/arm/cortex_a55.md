@@ -2,7 +2,7 @@
 # Version: r2p0 · ARMv8.2-A AArch64
 # Width: 64
 # Source: Arm Architecture Reference Manual for A-profile (ARM DDI 0487)／Cortex-A55 TRM (ARM 100442)
-# Status: 架構定義欄位已依 ARMv8.2-A 整理完成；v8.3 之後才有的欄位在本核心標為 RES0。Reset 值採架構 Warm reset 定義，標「-」者為 UNKNOWN 或依實作而定。IMPLEMENTATION DEFINED 暫存器（CPUECTLR_EL1 等）尚未收錄，見檔尾待補清單
+# Status: ⚠ 尚無任何暫存器逐欄對照過官方文件（本環境無法連上 developer.arm.com）。內容依 ARMv8.2-A 架構規格整理，v8.3 之後才有的欄位在本核心標為 RES0；Reset 採架構 Warm reset 定義，標「-」者為 UNKNOWN 或依實作而定。使用前請對照 DDI 0487 與 Cortex-A55 TRM 逐顆核對，核對完在該暫存器加一行 `- Verified:`。落差見檔尾對照表
 # Description: AArch64 EL1 系統暫存器常用子集（識別、控制、位址轉換、例外狀態）
 
 <!--
@@ -10,6 +10,16 @@
   AArch64 系統暫存器一律 64-bit，因此每個暫存器佔 8 bytes，Offset 以 8 遞增。
   Offset ＝ 值在 bin dump 中的位元組位移（little-endian），請讓 dump 腳本的
   輸出順序與下面一致。
+
+  ── 與官方文件的落差 ───────────────────────────────────────────────
+  本檔收錄的 20 顆是「除錯最常看的 EL1 系統暫存器」，**遠不是完整清單**：
+  AArch64 架構定義的系統暫存器有數百顆（DDI 0487 附錄），Cortex-A55 TRM
+  另有一整組 IMPLEMENTATION DEFINED 暫存器。需要哪顆就照格式補哪顆。
+  常見但本檔尚未收錄：SCTLR_EL2/EL3、HCR_EL2、SCR_EL3、TTBR0_EL2、
+  VTTBR_EL2、AMAIR_EL1、CONTEXTIDR_EL1、TPIDR_EL0/EL1、
+  ID_AA64ISAR0/1_EL1、ID_AA64MMFR1/2_EL1、ID_AA64DFR0_EL1、
+  CCSIDR_EL1、CSSELR_EL1、PMCR_EL0 等效能監控群組、
+  CNTP_CTL_EL0／CNTV_CTL_EL0 等計時器群組。
 
   ── 尚未收錄（IMPLEMENTATION DEFINED，需查 Cortex-A55 TRM 逐欄補上）────
   * CPUECTLR_EL1   S3_0_C15_C1_4   核心擴充控制（預取、匯流排行為）

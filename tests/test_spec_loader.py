@@ -230,3 +230,65 @@ def test_status_header_parsed_without_warning():
         "# CPU: T\n# Status: 已核對 TRM r1p2\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
     assert spec.status == "已核對 TRM r1p2"
     assert spec.warnings == []
+
+
+# ── 官方文件對照出處（- Verified:）─────────────────────────────────
+# 現場事故（2026-08-24）：R5 官方 TRM 有 TCMTR，本檔卻沒有 —— 因為 spec 是
+# 依架構知識整理、沒有逐顆對照原廠文件，而軟體完全沒把這件事講出來。
+# 從此每顆暫存器要能標記「對照過哪一份文件的哪一段」，沒標＝未對照。
+
+def test_verified_header_parsed():
+    spec = parse_spec_text(
+        "# CPU: T\n## R\n- Offset: 0x0\n- Verified: ARM DDI 0460D §4 Table 4.5\n\n"
+        "| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
+    assert spec.registers[0].verified == "ARM DDI 0460D §4 Table 4.5"
+    assert spec.warnings == []
+
+
+def test_verified_defaults_to_empty_string():
+    spec = parse_spec_text(
+        "# CPU: T\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n", "t")
+    assert spec.registers[0].verified == ""
+
+
+def test_verified_is_per_register_not_inherited():
+    """A 標了出處，後面沒標的 B 不准跟著變成「已對照」。"""
+    spec = parse_spec_text(
+        "# CPU: T\n"
+        "## A\n- Offset: 0x0\n- Verified: 官方文件 X\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n\n"
+        "## B\n- Offset: 0x4\n\n| Bits | Field |\n|---|---|\n| 0 | G |\n", "t")
+    a, b = spec.registers
+    assert a.verified == "官方文件 X" and b.verified == ""
+
+
+def test_verified_inside_enum_block_still_belongs_to_register():
+    """Enum 區塊後面接 `- Verified:` 不可被當成 enum 項目（消歧義集合要包含它）。"""
+    spec = parse_spec_text(
+        "# CPU: T\n## R\n- Offset: 0x0\n\n| Bits | Field |\n|---|---|\n| 0 | F |\n\n"
+        "### Enum: F\n- 0: 關\n- 1: 開\n\n"
+        "## R2\n- Offset: 0x4\n- Verified: 官方文件 Y\n\n| Bits | Field |\n|---|---|\n| 0 | G |\n", "t")
+    assert spec.registers[0].fields[0].enum == {0: "關", 1: "開"}
+    assert spec.registers[1].verified == "官方文件 Y"
+    assert spec.warnings == []
+
+
+def test_builtin_r5_tcmtr_present_and_verified():
+    """TCMTR 是現場抓到的漏列（官方 DDI 0460D c0 TCM Type Register）。
+    設計如此：它必須在、必須帶官方出處，且位在 CTR 之後、MPUIR 之前。"""
+    spec = load_spec_file(SPECS_DIR / "arm" / "cortex_r5.md")
+    names = [r.name for r in spec.registers]
+    assert "TCMTR" in names, "R5 少了官方 TRM 明列的 TCMTR"
+    assert names.index("CTR") < names.index("TCMTR") < names.index("MPUIR")
+    tcmtr = next(r for r in spec.registers if r.name == "TCMTR")
+    assert tcmtr.offset == 0x008 and tcmtr.size == 32
+    assert "0460D" in tcmtr.verified, "TCMTR 必須註明對照的官方文件"
+    assert {f.name for f in tcmtr.fields} >= {"ATCM", "BTCM"}
+
+
+def test_builtin_specs_status_declares_verification_state():
+    """四份內建 spec 的 Status 必須誠實交代對照狀態：
+    只要還有暫存器沒對照官方文件，就要掛 ⚠（不准讓使用者以為全部驗過）。"""
+    for spec in load_builtin_specs(SPECS_DIR):
+        unverified = [r.name for r in spec.registers if not r.verified]
+        if unverified:
+            assert "⚠" in spec.status, f"{spec.spec_id} 有 {len(unverified)} 顆未對照卻沒在 Status 標示"

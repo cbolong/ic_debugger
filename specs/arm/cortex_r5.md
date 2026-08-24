@@ -2,7 +2,7 @@
 # Version: r1p2 · ARMv7-R
 # Width: 32
 # Source: ARM Architecture Reference Manual ARMv7-A/R (ARM DDI 0406C)／Cortex-R5 TRM (ARM DDI 0460)
-# Status: 架構定義欄位已整理完成；Reset 標「-」者依組態接腳或實作而異。實作定義暫存器（ACTLR／ADFSR 等）尚未收錄，見檔尾待補清單。正式使用前請對照貴專案的 TRM 版本核對
+# Status: ⚠ 僅 TCMTR 一顆已逐欄對照官方 TRM（見該暫存器的 Verified）；其餘為依 ARMv7-R 架構規格整理、尚未對照原廠 TRM 原文。每顆暫存器的核對狀態見「Spec 全文」頁。官方 CP15 暫存器清單與本檔的落差見檔尾對照表
 # Description: ARMv7-R CP15 系統控制暫存器、故障狀態暫存器與 MPU 區域暫存器（常用子集）
 
 <!--
@@ -11,14 +11,30 @@
   不是 CP15 的 (CRn, op1, CRm, op2) 編碼。請讓 dump 腳本的輸出順序與
   下面的 Offset 順序一致（examples/sample_r5.bin 即依此順序產生）。
 
-  ── 尚未收錄（實作定義，需查 Cortex-R5 TRM 逐欄補上）──────────────
-  * ACTLR      (c1,0,c0,1)  輔助控制：ECC／FPU／匯流排行為開關
-  * ADFSR      (c5,0,c1,0)  輔助資料故障狀態（ECC 錯誤資訊）
-  * AIFSR      (c5,0,c1,1)  輔助指令故障狀態
-  * TCMTR      (c0,0,c0,2)  TCM 型態
-  * SLPCTL／PWRCTL          低功耗控制（依 SoC 整合而異）
-  * PMCR 等效能監控群組      (c9,0,c12,x)
-  補的時候照本檔格式即可；補完把上面的 Status 一併更新。
+  ── 與官方 TRM 暫存器清單的落差（DDI 0460D「System Control → Register
+     descriptions」目錄）────────────────────────────────────────────
+  ✔ 已收錄：Main ID(MIDR)、Cache Type(CTR)、TCM Type(TCMTR)、
+            MPU Type(MPUIR)、Multiprocessor Affinity(MPIDR)、
+            System Control(SCTLR)、Coprocessor Access Control(CPACR)、
+            Fault Status/Address(DFSR/IFSR/DFAR/IFAR)、
+            MPU 區域群組(RGNR/DRBAR/DRSR/DRACR)、TCM 區域(ATCMRR/BTCMRR)、
+            CPSR（核心狀態，非 CP15，為除錯方便一併收錄）
+  ✘ 尚未收錄（官方目錄裡有、本檔還沒有）：
+     * The Processor Feature Registers（ID_PFR0/1）
+     * c0, Debug Feature Register 0（ID_DFR0）
+     * c0, Auxiliary Feature Register 0（ID_AFR0）
+     * Memory Model Feature Registers（ID_MMFR0–3）
+     * Instruction Set Attributes Registers（ID_ISAR0–5）
+     * c0, Cache Size ID Register（CCSIDR）
+     * c0, Cache Level ID Register（CLIDR）
+     * c0, Auxiliary ID Register（AIDR）
+     * c0, Cache Size Selection Register（CSSELR）
+     * c1, Auxiliary Control Register（ACTLR）— 實作定義，ECC/匯流排開關在此
+     * c15, Secondary Auxiliary Control Register
+     * Auxiliary Fault Status Registers（ADFSR/AIFSR）
+     * 上述之後的章節（快取維護、效能監控 c9、除錯 c14/c15 等）尚未逐一比對
+  補的方式：從官方 TRM 逐欄抄進表格，並在該暫存器加一行
+  `- Verified: ARM DDI 0460D §x.y Table x.z`，補完更新檔頭的 Status。
 -->
 
 ## MIDR
@@ -67,8 +83,22 @@
 - 0b10: VIPT
 - 0b11: PIPT
 
-## MPUIR
+## TCMTR
 - Offset: 0x008
+- Reset: -
+- Verified: ARM DDI 0460D（Cortex-R5 TRM r1p2）§4 Figure 4.9 / Table 4.5 — 位元切分依官方圖示逐欄核對
+- Description: TCM Type Register — 告知處理器系統中 ATCM 與 BTCM 的數量（唯讀，僅特權模式可存取）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 31:29 | RES0  | RO     | 0b000 | 保留（官方圖示標示為 0） |
+| 28:19 | RES0  | RO     | 0     | 保留 |
+| 18:16 | BTCM  | RO     | -     | 系統中 BTCM 的數量 |
+| 15:3  | RES0  | RO     | 0     | 保留 |
+| 2:0   | ATCM  | RO     | -     | 系統中 ATCM 的數量 |
+
+## MPUIR
+- Offset: 0x00C
 - Reset: -
 - Description: MPU Type Register — MPU 區域數量組態（唯讀，依合成參數而定）
 
@@ -90,7 +120,7 @@
 - 1: 分離（I／D 各自）MPU
 
 ## MPIDR
-- Offset: 0x00C
+- Offset: 0x010
 - Reset: -
 - Description: Multiprocessor Affinity Register — 多處理器親和性（識別本核心在叢集中的位置）
 
@@ -113,7 +143,7 @@
 - 1: 以多執行緒方式實作
 
 ## SCTLR
-- Offset: 0x010
+- Offset: 0x014
 - Reset: -
 - Description: System Control Register — 核心主控制（Reset 值依 VINITHI／CFGEE／TEINIT 等組態接腳而異）
 
@@ -211,7 +241,7 @@
 - 1: MPU 開啟
 
 ## CPACR
-- Offset: 0x014
+- Offset: 0x018
 - Reset: 0x00000000
 - Description: Coprocessor Access Control Register — 協同處理器（FPU）存取權限
 
@@ -235,7 +265,7 @@
 - 0b11: 完全存取
 
 ## CPSR
-- Offset: 0x018
+- Offset: 0x01C
 - Reset: -
 - Description: Current Program Status Register — 目前處理器狀態（模式、中斷遮罩、條件旗標）
 
@@ -288,7 +318,7 @@
 - 0b11111: System 模式
 
 ## DFSR
-- Offset: 0x01C
+- Offset: 0x020
 - Reset: -
 - Description: Data Fault Status Register — 最近一次資料中止（abort）的狀態
 
@@ -313,7 +343,7 @@
 - 0b1101: 權限（permission）fault
 
 ## IFSR
-- Offset: 0x020
+- Offset: 0x024
 - Reset: -
 - Description: Instruction Fault Status Register — 最近一次預取中止的狀態
 
@@ -334,7 +364,7 @@
 - 0b1101: 權限（permission）fault
 
 ## DFAR
-- Offset: 0x024
+- Offset: 0x028
 - Reset: -
 - Description: Data Fault Address Register — 造成資料 abort 的存取位址
 
@@ -343,7 +373,7 @@
 | 31:0 | Address | RW     | -     | fault 位址 |
 
 ## IFAR
-- Offset: 0x028
+- Offset: 0x02C
 - Reset: -
 - Description: Instruction Fault Address Register — 造成預取 abort 的指令位址
 
@@ -352,7 +382,7 @@
 | 31:0 | Address | RW     | -     | fault 位址 |
 
 ## RGNR
-- Offset: 0x02C
+- Offset: 0x030
 - Reset: -
 - Description: MPU Region Number Register — 選擇後續 DRBAR／DRSR／DRACR 要存取的區域
 
@@ -362,7 +392,7 @@
 | 7:0  | Region | RW     | -     | 目前選取的 MPU 區域編號 |
 
 ## DRBAR
-- Offset: 0x030
+- Offset: 0x034
 - Reset: -
 - Description: MPU Region Base Address Register — RGNR 所選區域的基底位址
 
@@ -372,7 +402,7 @@
 | 4:0  | RES0        | RO     | 0     | 保留 |
 
 ## DRSR
-- Offset: 0x034
+- Offset: 0x038
 - Reset: -
 - Description: MPU Region Size and Enable Register — 區域大小、子區域停用與致能
 
@@ -397,7 +427,7 @@
 - 1: 區域啟用
 
 ## DRACR
-- Offset: 0x038
+- Offset: 0x03C
 - Reset: -
 - Description: MPU Region Access Control Register — 區域存取權限與記憶體屬性
 
@@ -431,7 +461,7 @@
 - 1: 可共享
 
 ## ATCMRR
-- Offset: 0x03C
+- Offset: 0x040
 - Reset: -
 - Description: ATCM Region Register — ATCM 基底位址、大小與致能（大小為唯讀，由合成組態決定）
 
@@ -460,7 +490,7 @@
 - 1: TCM 開啟
 
 ## BTCMRR
-- Offset: 0x040
+- Offset: 0x044
 - Reset: -
 - Description: BTCM Region Register — BTCM 基底位址、大小與致能
 

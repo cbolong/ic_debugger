@@ -40,6 +40,11 @@
 | 廠商＝子資料夾名（UI 分組依據） | ::test_builtin_specs_have_vendor_from_subfolder | 四份逐一 |
 | README.md 與底線開頭檔案不當成 spec（**設計如此**：讓維護者能在 spec 旁放說明與草稿） | ::test_is_spec_file_skips_readme_and_underscore、_readme_in_specs_dir_is_not_loaded | 副檔名／檔名各變體 |
 | `# Status:` 檔頭解析且不產生警告 | ::test_status_header_parsed_without_warning | — |
+| **`- Verified:` 逐顆出處解析**（有寫＝已對照官方文件；未寫＝空字串，**設計如此**：空字串不是 None，JS 端只做 truthy 判斷） | test_spec_loader.py::test_verified_header_parsed、_verified_defaults_to_empty_string、test_exhaustive_analyzer.py::test_verified_absent_is_empty_string_not_none | 有/無兩態＋型別 |
+| 出處**不跨暫存器繼承**（前一顆標了，後一顆不准跟著變成已對照） | ::test_verified_is_per_register_not_inherited | 相鄰兩顆 |
+| Enum 區塊後接 `- Verified:` 不被誤吞成 enum 項目 | ::test_verified_inside_enum_block_still_belongs_to_register | 邊界案例 |
+| **R5 的 TCMTR 必須在**、位置介於 CTR 與 MPUIR、帶官方出處（2026-08-24 現場漏列事故） | ::test_builtin_r5_tcmtr_present_and_verified | offset／欄位／出處逐項 |
+| 只要還有暫存器未對照，`# Status:` 必須掛 `⚠`（**設計如此**：不准讓使用者以為全部驗過） | ::test_builtin_specs_status_declares_verification_state | 四份內建 spec 全掃 |
 
 ## 3. bin 解析與對應（bin_parser）
 
@@ -61,6 +66,8 @@
 | enum：目前值標記與缺項行為（值不在表 → 無 label、無 current） | ::test_enum_current_marking_full_domain | 2-bit 欄位**值域 0–3 全窮舉**（含刻意缺 0b11） |
 | hexdump：逐 word 對應（32/64/空洞）、LE 組值、檔尾不足一 word | ::test_hexdump_annotation_with_gap_and_64bit、_hexdump_value_matches_le_word、test_analyzer.py::test_hexdump_annotation | 混合佈局逐 word 斷言 |
 | 範例 bin × 範例 spec 端到端 | test_analyzer.py::test_sample_bin_against_r5_spec | SCTLR/DFSR 等關鍵解碼逐項 |
+| 出處（verified）在**三條解碼路徑**（bin 分析／Spec 全文／快速反查）看到同一個值（**設計如此**：共用 `_register_dict`） | test_exhaustive_analyzer.py::test_verified_flows_through_all_three_paths | R5 全暫存器逐顆 |
+| `spec_summary.verified_count` 等於實際標了出處的顆數、且 0 ≤ count ≤ 總數 | ::test_verified_count_matches_registers | 四份內建 spec 全掃 |
 
 ## 5. Spec 全文檢視（稽核＋連續對照）
 
@@ -72,6 +79,8 @@
 | 已載入 bin 時同頁疊上目前值，且值/differs 與暫存器頁**完全一致**（**設計如此**：兩頁共用 build_payload 單一解碼來源，不允許各算各的） | ::test_spec_detail_with_bin_overlays_values | 範例 bin 全暫存器逐一比對 |
 | **只有「目前使用中的 spec」疊值**（**設計如此**：bin 的 offset 對應跟著 spec 走，套到別份 spec 上值無意義） | test_app_state.py::test_detail_binf_only_for_current_spec | 目前／非目前／無 bin 三態 |
 | 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 11 節人工清單第 4/6 項） | — |
+| 每顆暫存器標示對照狀態：已對照→綠色 chip＋出處全文；未對照→虛線 chip（**設計如此**：未對照不再重複印長句，避免 17 行雜訊） | test_ui.py::test_unverified_register_says_so_on_audit_page＋tools/preview.py 截圖 8 | 兩態 |
+| spec 層級顯示「已對照官方 X/N」比例（Spec 管理卡片與 Spec 全文標頭同一支渲染） | test_ui.py::test_verify_state_rendered_from_single_source＋截圖 4/8 | 全對照／部分／完全未對照三態 |
 
 ## 6. 快速反查（offset／名稱＋值 → 單筆解碼）
 

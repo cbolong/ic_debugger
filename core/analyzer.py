@@ -160,6 +160,7 @@ def _register_dict(reg: Register, data: bytes | None) -> dict:
         "offset_hex": f"0x{reg.offset:03X}",
         "size": reg.size,
         "desc": reg.desc,
+        "verified": reg.verified,
         "covered": covered,
         "partial": partial,
         "value_hex": fmt_hex(value, reg.size) if value is not None else None,
@@ -231,6 +232,7 @@ def spec_summary(spec: Spec) -> dict:
         "origin": spec.origin,
         "path": spec.path,
         "register_count": len(spec.registers),
+        "verified_count": sum(1 for r in spec.registers if r.verified),
         "warnings": list(spec.warnings),
     }
 

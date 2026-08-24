@@ -14,7 +14,15 @@ register 值（raw bin）匯入後，依內建的 CPU spec 自動解碼每一個
 | Andes | N45 | RISC-V RV32 標準機器模式 CSR |
 
 spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自動打包出新的 exe。
-每份 spec 都標了 `Status`（哪些欄位已核對原廠文件、哪些待補），app 內直接看得到。
+
+> ⚠ **目前這四份 spec 的來源**：內容依公開的**架構規格**（ARMv7-R／ARMv8.2-A
+> ARM ARM、RISC-V Privileged Spec v1.11）整理，**尚未逐顆對照原廠 TRM／
+> datasheet**（目前只有 R5 的 `TCMTR` 對照過官方 DDI 0460D）。架構規格不含
+> `TCMTR`、`micm_cfg` 這類實作相關的暫存器，所以現有 spec**一定有缺漏**。
+> app 會把這件事直接標在畫面上：Spec 管理卡片顯示「已對照官方 X/N」，
+> 「Spec 全文」頁每顆暫存器標「已對照官方（附出處）」或「未對照官方文件」。
+> 有原廠文件的人請照 [specs/README.md](specs/README.md) 的流程補，
+> 對完一顆就在該顆加一行 `- Verified: <文件編號 §章節/表號>`。
 
 **下載**：到 [Releases](../../releases) 抓最新 `build-*` 的 `IC_Debugger.exe`，
 單一執行檔，下載後直接執行。
@@ -46,7 +54,9 @@ spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自�
    （可把該文件內附的指示範本連同 spec 原文交給 AI 產生；目錄規則見
    [specs/README.md](specs/README.md)）。
 2. 先在 app 內「Spec 管理 → 載入外部 Spec」載入測試，把解析警告清乾淨。
-3. 放進 `specs/<廠商>/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
+3. 用「Spec 全文」對著原廠文件逐顆核對，核完一顆就補一行
+   `- Verified: <文件編號 §章節/表號>`（沒真的對照過就不要寫）。
+4. 放進 `specs/<廠商>/`、push 到 `main` → CI 自動重新打包並發佈 Release（保留最新 2 個）。
 
 ## 開發快速上手
 
