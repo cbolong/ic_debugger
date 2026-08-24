@@ -56,12 +56,15 @@ specs/
 
 ## 目前的對照狀態（2026-08-24）
 
-| Spec | 暫存器 | 已對照官方 | 說明 |
-|------|--------|-----------|------|
-| arm/cortex_r5 | 18 | 1（TCMTR） | 其餘依 ARMv7-R 架構規格整理，未對照 DDI 0460D 原文 |
-| arm/cortex_a55 | 20 | 0 | 依 ARMv8.2-A 架構規格整理，未對照 DDI 0487／A55 TRM |
-| andes/n25 | 20 | 0 | 依 RISC-V Privileged v1.11 整理，未對照 AndeStar V5 手冊 |
-| andes/n45 | 20 | 0 | 同上 |
+| Spec | 暫存器 | 位元定義已對照 | 對照的官方文件 | 還缺什麼 |
+|------|--------|---------------|---------------|---------|
+| andes/n25 | 20 | 20 | RISC-V 特權架構規格 v1.11（ratified，riscv/riscv-isa-manual） | 這顆核心實際有哪些 CSR、Reset 值、Andes 專屬 CSR（需 AndeStar V5 手冊） |
+| andes/n45 | 20 | 20 | 同上 | 同上 |
+| arm/cortex_a55 | 20 | 14 | Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a bitfield） | 另 6 顆模型無定義；Reset 值、IMPLEMENTATION DEFINED 部分（需 A55 TRM／DDI 0487） |
+| arm/cortex_r5 | 18 | 1（TCMTR） | ARM DDI 0460D（Cortex-R5 TRM） | 其餘 17 顆只做過 A-profile 交叉比對（無錯但不足以認證），需 DDI 0460D 原文 |
+
+「位元定義已對照」＝該暫存器的欄位切在第幾位元，已逐欄對著官方文件核過。
+它**不代表**暫存器清單完整、也不代表 Reset 值驗過 —— 那些要晶片 TRM。
 
 各檔檔尾的 HTML 註解列有「與官方文件的落差」清單（官方有、本檔還沒收錄的
 暫存器）。有原廠文件的人請照著補，補一顆、對一顆、標一顆 `- Verified:`。

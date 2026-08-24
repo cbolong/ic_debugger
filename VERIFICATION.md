@@ -45,6 +45,10 @@
 | Enum 區塊後接 `- Verified:` 不被誤吞成 enum 項目 | ::test_verified_inside_enum_block_still_belongs_to_register | 邊界案例 |
 | **R5 的 TCMTR 必須在**、位置介於 CTR 與 MPUIR、帶官方出處（2026-08-24 現場漏列事故） | ::test_builtin_r5_tcmtr_present_and_verified | offset／欄位／出處逐項 |
 | 只要還有暫存器未對照，`# Status:` 必須掛 `⚠`（**設計如此**：不准讓使用者以為全部驗過） | ::test_builtin_specs_status_declares_verification_state | 四份內建 spec 全掃 |
+| **RISC-V 標準 CSR 的位元定義**逐欄鎖定官方 v1.11（mstatus 的 UPIE／UIE、mie／mip 的 U 模式位元、misa 26 個擴充字母、mcause 值表、PMP cfg 佈局） | test_specs_official.py::test_mstatus_layout_matches_official_v1_11、_interrupt_registers_layout_…、_misa_extension_letters_…、_mcause_code_enum_…、_pmpcfg0_entry_layout_and_reset、_pmpaddr_registers_… | n25／n45 各 20 顆逐欄 |
+| **重置值只寫官方明訂的**（mstatus 只有 MIE／MPRV＝0，PMP 只有 A／L＝0，其餘 `-`；**設計如此**：猜的 reset 會產生假的「≠ Reset」差異） | ::test_mstatus_reset_only_mie_and_mprv_are_defined、_pmpcfg0_entry_layout_and_reset、_a55_reset_values_are_not_fabricated | 兩份 RISC-V spec 全欄位＋A55 全暫存器 |
+| N25 與 N45 的標準 CSR 定義必須完全一致（防「只改了一邊」） | ::test_n25_and_n45_standard_csrs_are_identical | 兩份 spec 深度比對 |
+| **A55 欄位位置**鎖定 Arm 機器可讀架構規格（123 個具名欄位） | ::test_a55_field_positions_match_arm_machine_readable_spec、_a55_verified_registers_cite_the_machine_readable_spec | 12 顆暫存器逐欄＋Verified 出處字串 |
 
 ## 3. bin 解析與對應（bin_parser）
 

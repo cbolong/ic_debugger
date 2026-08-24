@@ -2,7 +2,7 @@
 # Version: r1p2 · ARMv7-R
 # Width: 32
 # Source: ARM Architecture Reference Manual ARMv7-A/R (ARM DDI 0406C)／Cortex-R5 TRM (ARM DDI 0460)
-# Status: ⚠ 僅 TCMTR 一顆已逐欄對照官方 TRM（見該暫存器的 Verified）；其餘為依 ARMv7-R 架構規格整理、尚未對照原廠 TRM 原文。每顆暫存器的核對狀態見「Spec 全文」頁。官方 CP15 暫存器清單與本檔的落差見檔尾對照表
+# Status: ⚠ 僅 TCMTR 一顆已逐欄對照官方 TRM（見該暫存器的 Verified）；其餘為依 ARMv7-R 架構規格整理、尚未對照原廠 TRM 原文。每顆暫存器的核對狀態見「Spec 全文」頁。官方 CP15 暫存器清單與本檔的落差、以及與 Arm AArch32 模型的交叉比對結果，都寫在本檔開頭的註解
 # Description: ARMv7-R CP15 系統控制暫存器、故障狀態暫存器與 MPU 區域暫存器（常用子集）
 
 <!--
@@ -10,6 +10,18 @@
   Offset ＝ 此暫存器的值在 bin dump 中的「位元組位移」（從 0 起算），
   不是 CP15 的 (CRn, op1, CRm, op2) 編碼。請讓 dump 腳本的輸出順序與
   下面的 Offset 順序一致（examples/sample_r5.bin 即依此順序產生）。
+
+  ── 交叉比對紀錄（2026-08-24）──────────────────────────────────────
+  拿 Arm 機器可讀架構規格的 AArch32 定義（rems-project/sail-arm，
+  arm-v9.4-a/src/v8_base.sail 的 bitfield MIDR_Type／CTR_Type／MPIDR_Type／
+  SCTLR_Type／CPACR_Type／DFSR_Type／IFSR_Type）比對本檔，兩邊都有的
+  28 個欄位位置**全部相符**，沒有發現位置錯誤。
+  但那是 **A-profile** 的 AArch32 定義，本核心是 **R-profile（ARMv7-R）**：
+  SCTLR 的 IE／NMFI／VE／U／FI／DZ／BR／RR／Z／SW 等 v7 欄位在該模型裡已被
+  移除，MPU 相關暫存器（MPUIR／RGNR／DRBAR／DRSR／DRACR）與 TCM 相關
+  （TCMTR／ATCMRR／BTCMRR）更是 R-profile 專屬、模型完全沒有。
+  所以這次比對**只當作沒抓到錯**，不足以標 `- Verified:` ——
+  R5 要逐顆標出處，還是得拿 DDI 0460D（Cortex-R5 TRM）原文核對。
 
   ── 與官方 TRM 暫存器清單的落差（DDI 0460D「System Control → Register
      descriptions」目錄）────────────────────────────────────────────

@@ -169,6 +169,6 @@ def test_unverified_register_says_so_on_audit_page():
     而畫面上沒有任何線索顯示這份 spec 未經原廠文件核對。
     """
     body = _scripts(build_main_html(""))[1]
-    assert "已對照官方文件：" in body
+    assert "位元定義對照自：" in body
     assert "未對照官方文件" in body
-    assert "尚未對照官方 0/" in body
+    assert "位元定義尚未對照官方 0/" in body

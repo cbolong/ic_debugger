@@ -2,7 +2,7 @@
 # Version: r2p0 · ARMv8.2-A AArch64
 # Width: 64
 # Source: Arm Architecture Reference Manual for A-profile (ARM DDI 0487)／Cortex-A55 TRM (ARM 100442)
-# Status: ⚠ 尚無任何暫存器逐欄對照過官方文件（本環境無法連上 developer.arm.com）。內容依 ARMv8.2-A 架構規格整理，v8.3 之後才有的欄位在本核心標為 RES0；Reset 採架構 Warm reset 定義，標「-」者為 UNKNOWN 或依實作而定。使用前請對照 DDI 0487 與 Cortex-A55 TRM 逐顆核對，核對完在該暫存器加一行 `- Verified:`。落差見檔尾對照表
+# Status: ⚠ 20 顆中有 14 顆的**欄位位置**已逐欄對照 Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a 的 bitfield 定義，由 Arm 官方 machine-readable specification 產生），125 個具名欄位全數相符（出處見各暫存器的 Verified）；另 6 顆（CurrentEL／DAIF／VBAR_EL1／FAR_EL1／ELR_EL1／CNTFRQ_EL0）該模型沒有對應 bitfield，仍未對照。**尚未對照 Cortex-A55 TRM 與 DDI 0487 原文**（本環境無法連上 developer.arm.com）：本核心是 Armv8.2-A，v8.3 之後才加入的欄位在本檔一律標 RES0；Reset 值與 IMPLEMENTATION DEFINED 的部分都還沒核對。落差見本檔開頭的註解
 # Description: AArch64 EL1 系統暫存器常用子集（識別、控制、位址轉換、例外狀態）
 
 <!--
@@ -10,6 +10,19 @@
   AArch64 系統暫存器一律 64-bit，因此每個暫存器佔 8 bytes，Offset 以 8 遞增。
   Offset ＝ 值在 bin dump 中的位元組位移（little-endian），請讓 dump 腳本的
   輸出順序與下面一致。
+
+  ── 對照狀態（2026-08-24）──────────────────────────────────────────
+  ✔ 已對照：14 顆暫存器的欄位位置，逐欄對照 rems-project/sail-arm 的
+     arm-v9.4-a/src/v8_base.sail bitfield 定義（該模型由 Arm 官方
+     machine-readable specification 產生），125 個具名欄位位置全數相符。
+     只驗「欄位在第幾位元」，沒有驗欄位語意、Reset 值與完整性。
+  ✘ 未對照：CurrentEL／DAIF／VBAR_EL1／FAR_EL1／ELR_EL1／CNTFRQ_EL0
+     （模型無對應 bitfield）；以及全部的 Reset 值 —— MIDR_EL1 的
+     0x412FD050 是照「r2p0 ＋ Cortex-A55 部件編號 0xD05」推出來的，
+     必須用 Cortex-A55 TRM 確認過才算數。
+  ⚠ 版本落差：對照用的模型是 Armv9.4-A，本核心是 Armv8.2-A。既有欄位的
+     位元位置在版本之間不會移動（新功能佔用原本的 RES0），所以位置相符
+     可信；但「這顆核心到底有沒有這個欄位」只有 A55 TRM 說了算。
 
   ── 與官方文件的落差 ───────────────────────────────────────────────
   本檔收錄的 20 顆是「除錯最常看的 EL1 系統暫存器」，**遠不是完整清單**：
@@ -35,7 +48,8 @@
 ## MIDR_EL1
 - Offset: 0x000
 - Reset: 0x412FD050
-- Description: Main ID Register — CPU 識別碼
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield MIDR_EL1_Type — 5 個欄位位置逐欄相符
+- Description: Main ID Register — CPU 識別碼（Reset 值 0x412FD050 是由 r2p0 與 Cortex-A55 的部件編號 0xD05 推得，尚未用 A55 TRM 確認）
 
 | Bits  | Field        | Access | Reset | Description |
 |-------|--------------|--------|-------|-------------|
@@ -58,6 +72,7 @@
 ## MPIDR_EL1
 - Offset: 0x008
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield MPIDR_EL1_Type — 6 個欄位位置逐欄相符
 - Description: Multiprocessor Affinity Register — 本核心在叢集中的位置
 
 | Bits  | Field | Access | Reset | Description |
@@ -126,6 +141,7 @@
 ## SCTLR_EL1
 - Offset: 0x020
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield SCTLR_EL1_Type — 22 個欄位位置逐欄相符
 - Description: System Control Register (EL1) — MMU／快取／對齊等主控制。標 RES0 者為 ARMv8.3 之後才定義、本核心未實作；bit 20 與 22 在 ARMv8.5 分別成為 TSCXT／EIS
 
 | Bits  | Field    | Access | Reset | Description |
@@ -207,6 +223,7 @@
 ## CPACR_EL1
 - Offset: 0x028
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CPACR_EL1_Type — TTA／FPEN 位置相符
 - Description: Architectural Feature Access Control Register — 浮點／SIMD 與追蹤存取權限
 
 | Bits  | Field | Access | Reset | Description |
@@ -226,6 +243,7 @@
 ## TCR_EL1
 - Offset: 0x030
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield TCR_EL1_Type — 21 個欄位位置逐欄相符；HWU0/HWU1 官方逐位元命名為 HWU059–HWU062／HWU159–HWU162，本檔以 4-bit 群組呈現（位元範圍相同）
 - Description: Translation Control Register (EL1) — 位址轉換組態。注意 TG0 與 TG1 的頁面大小編碼不同，是常見的設定錯誤來源
 
 | Bits  | Field | Access | Reset | Description |
@@ -338,6 +356,7 @@
 ## TTBR0_EL1
 - Offset: 0x038
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield TTBR0_Type（BADDR 47..1、CnP 0..0）＋ TTBR0_EL1_Type（ASID 63..48）
 - Description: Translation Table Base Register 0 — 低位址空間（使用者空間）的頁表基底
 
 | Bits  | Field | Access | Reset | Description |
@@ -353,6 +372,7 @@
 ## TTBR1_EL1
 - Offset: 0x040
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield TTBR1_Type（BADDR 47..1、CnP 0..0）＋ TTBR1_EL1_Type（ASID 63..48）
 - Description: Translation Table Base Register 1 — 高位址空間（核心空間）的頁表基底
 
 | Bits  | Field | Access | Reset | Description |
@@ -368,6 +388,7 @@
 ## MAIR_EL1
 - Offset: 0x048
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield MAIR_EL1_Type — Attr0–Attr7 八個位元組位置逐欄相符
 - Description: Memory Attribute Indirection Register — 8 組記憶體屬性，頁表描述子的 AttrIndx 指向其中一組
 
 | Bits  | Field | Access | Reset | Description |
@@ -412,6 +433,7 @@
 ## ESR_EL1
 - Offset: 0x058
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ESRType/ESR_EL1_Type — EC 31..26、IL 25、ISS 24..0 相符
 - Description: Exception Syndrome Register (EL1) — 例外原因（當機分析第一站：先看 EC）
 
 | Bits  | Field | Access | Reset | Description |
@@ -474,6 +496,7 @@
 ## SPSR_EL1
 - Offset: 0x070
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield SPSR_EL1_Type — 12 個欄位位置逐欄相符；M[4]／M[3:0] 官方以模式編碼另行定義，不在該 bitfield 內
 - Description: Saved Program Status Register (EL1) — 進入例外前的處理器狀態
 
 | Bits  | Field   | Access | Reset | Description |
@@ -519,6 +542,7 @@
 ## CLIDR_EL1
 - Offset: 0x078
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CLIDR_EL1_Type — 10 個欄位位置逐欄相符
 - Description: Cache Level ID Register — 各階快取的種類與一致性層級
 
 | Bits  | Field  | Access | Reset | Description |
@@ -552,6 +576,7 @@
 ## CTR_EL0
 - Offset: 0x080
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CTR_EL0_Type — 7 個欄位位置逐欄相符
 - Description: Cache Type Register — 快取行大小與策略（自修改程式碼維護的依據）
 
 | Bits  | Field    | Access | Reset | Description |
@@ -583,6 +608,7 @@
 ## ID_AA64PFR0_EL1
 - Offset: 0x088
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64PFR0_EL1_Type — 15 個欄位位置逐欄相符（55:52 官方為 Armv9 的 RME，本核心標 RES0）
 - Description: AArch64 Processor Feature Register 0 — 各例外等級與功能的實作狀況
 
 | Bits  | Field    | Access | Reset | Description |
@@ -649,6 +675,7 @@
 ## ID_AA64MMFR0_EL1
 - Offset: 0x090
 - Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64MMFR0_EL1_Type — 12 個欄位位置逐欄相符
 - Description: AArch64 Memory Model Feature Register 0 — 實體位址範圍與頁面大小支援度
 
 | Bits  | Field     | Access | Reset | Description |

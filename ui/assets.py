@@ -677,16 +677,18 @@ function statusChipHtml(r, always){
 // 使用者真正要回答的問題是「這份 spec 可不可信」：沒對照過原廠文件的內容
 // 一律要講出來，不准用沉默假裝已驗證（CLAUDE.md 不變條件 5）。
 function verifyChipHtml(s){
+  // 講「位元定義」而不是含糊的「已對照」：對照過的是欄位切分，不代表這份
+  // spec 的暫存器清單就是完整的（那要看 Status 的 ⚠ 與檔內的落差清單）
   var n = s.register_count || 0, v = s.verified_count || 0;
-  if (n && v === n) return '<span class="chip chip-builtin">已對照官方 ' + v + '/' + n + '</span>';
-  if (v) return '<span class="chip chip-warn">已對照官方 ' + v + '/' + n + '</span>';
-  return '<span class="chip chip-none">尚未對照官方 0/' + n + '</span>';
+  if (n && v === n) return '<span class="chip chip-builtin">位元定義已對照官方 ' + v + '/' + n + '</span>';
+  if (v) return '<span class="chip chip-warn">位元定義已對照官方 ' + v + '/' + n + '</span>';
+  return '<span class="chip chip-none">位元定義尚未對照官方 0/' + n + '</span>';
 }
 
 // 單顆暫存器的對照狀態。always=false 時「未對照」不出 chip（每顆都掛灰標籤
 // 只會變成雜訊）；Spec 全文是稽核頁面，兩種狀態都必須明講。
 function verifyRegChipHtml(r, always){
-  if (r.verified) return '<span class="chip chip-builtin" title="' + esc(r.verified) + '">已對照官方</span>';
+  if (r.verified) return '<span class="chip chip-builtin" title="' + esc(r.verified) + '">位元定義已對照官方</span>';
   return always ? '<span class="chip chip-none">未對照官方文件</span>' : '';
 }
 
@@ -1050,7 +1052,7 @@ function renderSpecDoc(){
     if (r.desc) h += '<div class="doc-reg-desc">' + esc(r.desc) + '</div>';
     // 出處只在「有對照過」時展開一行（每顆都印一句「沒對照」＝17 行雜訊，
     // 未對照用標頭那顆 chip 講就夠了）
-    if (r.verified) h += '<div class="doc-reg-verify">✔ 已對照官方文件：' + esc(r.verified) + '</div>';
+    if (r.verified) h += '<div class="doc-reg-verify">✔ 位元定義對照自：' + esc(r.verified) + '</div>';
     h += fieldTable(r, 'doc' + ri, { expandEnums: true });
     h += '</div>';
   });
