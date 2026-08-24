@@ -126,6 +126,23 @@
 | 「找不到 spec」畫面顯示完整診斷表 | tools/preview.py 的 11_nospec_diag.png | 目錄不存在的情境 |
 | **不載入任何外部資源**（封閉網路啟動不卡） | test_ui.py::test_no_external_resources | HTML 全文掃描 |
 
+### 9.1 bridge 初始化競態（2026-08-24 現場事故）
+
+pywebview 先注入 `window.pywebview = {api: {}}`，之後才把方法掛上去。
+前端若只檢查 `pywebview.api` 存在就初始化，會落在空窗期取到 undefined 的
+`get_init`，promise 被拒後 `S.inited` 已 latch，之後的 `pywebviewready`
+也不會重試 —— 結果就是畫面永遠停在「找不到任何 CPU spec」、沒有 toast、
+連診斷表都不出現。
+
+| 行為 | 驗證 | 窮舉範圍 |
+|---|---|---|
+| `bridgeReady()` 必須確認 `pywebview.api.get_init` **真的是 function**（**設計如此**：只檢查 api 物件＝重現事故） | test_bridge_init.py::test_bridge_ready_checks_actual_method | 靜態掃描，CI 一定跑 |
+| `init()` 在 bridge 未就緒時不得先 latch `S.inited` | ::test_init_does_not_latch_before_bridge_ready | 程式結構斷言 |
+| 輪詢有逾時，逾時把原因寫進畫面而非無限空白 | ::test_poll_has_timeout_and_reports_failure | — |
+| `handle()` 在 `ok:false` 時仍保留 diag（**設計如此**：出事時診斷不能一起消失） | ::test_handle_keeps_diag_on_failure | 程式結構斷言 |
+| **真的重演兩段式注入**：空窗期 0／400／1200 ms，UI 最後都必須拿到 spec | ::test_ui_loads_despite_two_phase_bridge_injection（Chromium 實跑；已驗證還原修正就會紅） | 3 種空窗期 |
+| 失敗原因常駐顯示在空狀態（toast 會消失） | ::test_handle_keeps_diag_on_failure ＋ noSpecHtml 的 lastError 區塊 | — |
+
 ## 10. 報告匯出
 
 | 行為 | 驗證 |
