@@ -444,6 +444,7 @@ var S = {
   onlyDiff: false,
   expanded: {},     // 暫存器名稱 → 是否展開
   diag: null,       // 啟動診斷（掃了哪些 spec 目錄、各找到幾份）
+  lastError: null,  // 最近一次失敗的原因（空狀態會顯示；toast 會消失，這個不會）
   doc: null,        // Spec 全文檢視的內容（get_spec_detail 的 detail）
   docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
   lk: { q: '', v: '', result: null, note: null, error: null,
@@ -473,18 +474,28 @@ function showToast(msg, isErr){
 // ── Python bridge ──────────────────────────────────────────────────
 function api(name){
   var args = Array.prototype.slice.call(arguments, 1);
-  if (!(window.pywebview && pywebview.api && pywebview.api[name])) {
+  if (!window.pywebview || !window.pywebview.api) {
     showToast('預覽模式：「' + name + '」需在應用程式中執行', true);
     return Promise.reject('no-api');
   }
-  return pywebview.api[name].apply(pywebview.api, args);
+  if (typeof window.pywebview.api[name] !== 'function') {
+    // bridge 在但方法不在 —— 這是真的異常，不能當成預覽模式默默吞掉
+    return Promise.reject('Python 端沒有提供「' + name + '」這個方法');
+  }
+  return window.pywebview.api[name].apply(window.pywebview.api, args);
 }
 
 // 統一處理 API 回應：{ok, error?, cancelled?, payload?, specs?}
 function handle(resp, after){
   if (!resp || resp.cancelled) return;
-  if (!resp.ok) { showToast(resp.error || '操作失敗', true); return; }
-  if (resp.diag) S.diag = resp.diag;
+  if (resp.diag) S.diag = resp.diag;   // 失敗也要留診斷，不然什麼線索都沒有
+  if (!resp.ok) {
+    S.lastError = resp.error || '操作失敗';
+    showToast(S.lastError, true);
+    renderAll();
+    return;
+  }
+  S.lastError = null;
   if (resp.specs) { S.specs = resp.specs; S.doc = null; }  // spec 集合變動 → 全文快取作廢
   if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
   // 換了 spec → 反查結果與歷史是舊 spec 解的，全部作廢
@@ -498,21 +509,47 @@ function handle(resp, after){
 function apiFail(e){ if (e !== 'no-api') showToast('操作失敗：' + e, true); }
 
 // ── 初始化：pywebview 就緒後拉初始資料；預覽模式吃 window.__PREVIEW__ ──
+// pywebview 是先注入 window.pywebview = {api: {}, …}，之後才用 _createApi()
+// 把方法一個個掛上去。只檢查「pywebview.api 存在」會落在這個空窗期：
+// 取到 undefined 的 get_init → promise 被拒 → 畫面永遠停在空狀態，
+// 而且 S.inited 已經 latch，後來的 pywebviewready 也不會重試。
+// 2026-08-24 現場「找不到任何 CPU spec」就是這個競態，所以一定要確認
+// 「那個方法真的已經是 function」才算就緒。
+function bridgeReady(){
+  return !!(window.pywebview && window.pywebview.api
+            && typeof window.pywebview.api.get_init === 'function');
+}
+
 function init(){
   if (S.inited) return;
-  S.inited = true;
   if (window.__PREVIEW__) {
+    S.inited = true;
     S.specs = window.__PREVIEW__.specs || [];
     S.payload = window.__PREVIEW__.payload || null;
     S.diag = window.__PREVIEW__.diag || null;
     prepPayload(); renderAll();
     return;
   }
-  api('get_init').then(function(resp){ handle(resp); }).catch(apiFail);
+  if (!bridgeReady()) return;   // 還沒掛好 → 不要 latch，讓輪詢繼續等
+  S.inited = true;
+  api('get_init').then(function(resp){
+    handle(resp);
+  }).catch(function(e){
+    S.lastError = '取得初始資料失敗：' + e;
+    renderAll();
+  });
 }
 window.addEventListener('pywebviewready', init);
+var _initTries = 0;
 var _initPoll = setInterval(function(){
-  if (window.__PREVIEW__ || (window.pywebview && pywebview.api)) { clearInterval(_initPoll); init(); }
+  if (window.__PREVIEW__ || bridgeReady()) { clearInterval(_initPoll); init(); return; }
+  // 約 30 秒還等不到就別再空等，直接把狀況講出來
+  if (++_initTries > 200) {
+    clearInterval(_initPoll);
+    S.inited = true;
+    S.lastError = '等不到 Python 端介面（pywebview bridge）就緒，請把 log 檔提供給維護者。';
+    renderAll();
+  }
 }, 150);
 
 // ── 動作 ───────────────────────────────────────────────────────────
@@ -666,6 +703,9 @@ function renderAll(){
 function noSpecHtml(){
   var h = '<div class="empty"><div class="big">📂</div>';
   h += '<p><b>找不到任何 CPU spec</b><br>正常情況下軟體內建 ARM Cortex-R5／A55 與 Andes N25／N45 四份。</p></div>';
+  if (S.lastError) {
+    h += '<div class="banner" style="margin-top:14px">⚠ ' + esc(S.lastError) + '</div>';
+  }
   var d = S.diag;
   if (d) {
     h += '<div class="card" style="margin-top:14px">';

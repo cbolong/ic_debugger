@@ -74,13 +74,19 @@ tests/               pytest；CI 的品質關卡
     ＝`fmt_hex`/`fmt_bin`、數值解析＝`parse_int`。新功能要先找有沒有
     現成的可掛，不准為同一件事再寫第二支 function；真的要分岔就加
     參數，並讓測試鎖住兩條路輸出一致（如 test_lookup_identical_to_bin_path）。
-13. **錯誤不准被吞掉**：`ui/apis.py` 每個對 JS 公開的方法都要掛 `@_guard`
+13. **bridge 就緒判斷**：pywebview 先注入 `window.pywebview = {api: {}}`，
+    之後才用 `_createApi()` 把方法掛上去。前端的 `bridgeReady()` 必須確認
+    **「方法真的是 function」**，不能只檢查 `pywebview.api` 存在 —— 只檢查
+    物件會落在注入空窗期，取到 undefined 的 get_init，畫面永遠停在空狀態
+    且毫無提示（2026-08-24 現場事故）。`init()` 也不准在 bridge 未就緒時
+    先 latch `S.inited`。tests/test_bridge_init.py 會重演這個競態。
+14. **錯誤不准被吞掉**：`ui/apis.py` 每個對 JS 公開的方法都要掛 `@_guard`
     （例外寫進 log ＋回傳可讀訊息）；`get_init` 一定要帶 `diag`（掃描過的
     spec 目錄、存在與否、log 路徑），UI 空狀態靠它講出「為什麼沒有 spec」。
     現場出過一次「畫面只說找不到 spec、完全查不出原因」，不要再走回去。
-14. **不載入任何外部資源**：IC 設計環境常是封閉網路，對外部字型／CDN 的
+15. **不載入任何外部資源**：IC 設計環境常是封閉網路，對外部字型／CDN 的
     DNS 與連線逾時會讓啟動多等好幾秒。UI 只用系統內建字型。
-15. **系統列語意（使用者指定）**：「縮小」→ 縮到系統列（tray），
+16. **系統列語意（使用者指定）**：「縮小」→ 縮到系統列（tray），
     「X」→ 真正關閉。與 ic-monitor 的行為相反，不要照 ic-monitor 改回去。
     tray 不可用（pystray 缺席）時縮小維持一般行為，不得擋啟動。
 
