@@ -179,7 +179,7 @@ def test_lookup_r5_sample_case():
     m = next(row for row in reg["rows"] if row["name"] == "M")
     assert m["enum_label"] == "MPU 開啟" and m["differs"] is True
     # offset 反查同顆
-    r2 = lookup_register(s, "0x014", "0x00C7187D")
+    r2 = lookup_register(s, "0x060", "0x00C7187D")
     assert r2["ok"] and r2["register"] == reg
 
 

@@ -54,14 +54,17 @@ specs/
 每份檔案開頭的 `# Status:` 就是給下一個人看的：**目前哪些部分可信、哪些還沒
 對過**；每顆暫存器的 `- Verified:` 則是逐顆的出處證明。補完欄位請一併更新兩者。
 
-## 目前的對照狀態（2026-08-24）
+## 目前的對照狀態（2026-08-28 完整化改版）
 
 | Spec | 暫存器 | 位元定義已對照 | 對照的官方文件 | 還缺什麼 |
 |------|--------|---------------|---------------|---------|
-| andes/n25 | 20 | 20 | RISC-V 特權架構規格 v1.11（ratified，riscv/riscv-isa-manual） | 這顆核心實際有哪些 CSR、Reset 值、Andes 專屬 CSR（需 AndeStar V5 手冊） |
-| andes/n45 | 20 | 20 | 同上 | 同上 |
-| arm/cortex_a55 | 20 | 14 | Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a bitfield） | 另 6 顆模型無定義；Reset 值、IMPLEMENTATION DEFINED 部分（需 A55 TRM／DDI 0487） |
-| arm/cortex_r5 | 18 | 1（TCMTR） | ARM DDI 0460D（Cortex-R5 TRM） | 其餘 17 顆只做過 A-profile 交叉比對（無錯但不足以認證），需 DDI 0460D 原文 |
+| arm/cortex_r5 | **60** | 58 | **ARM DDI 0406C.d 官方 PDF**（ARMv7-A/R ARM，§B5/B6/B1/B7）＋DDI 0460D（TCMTR） | ACTLR 等實作定義顆的逐位意義、實際 Reset 值、c15 群（需 DDI 0460 原文） |
+| andes/n25 | **90** | 90 | RISC-V 特權架構規格 v1.11（riscv/riscv-isa-manual）＋**Andes 官方 QEMU**（andestech/qemu） | 實際 Reset 值、mxstatus 等 12 顆的完整切分、PMA 群（需 datasheet／SPA 手冊） |
+| andes/n45 | **90** | 90 | 同上 | 同上 |
+| arm/cortex_a55 | **55** | 44 | Arm 機讀架構規格（sail-arm）＋**ARM 官方 TF-A**（實作定義顆） | 11 顆無機讀定義、Reset 值、EL2/EL3 與其餘實作定義顆（需 A55 TRM／DDI 0487） |
+
+R5 的清單依官方 Table B5-11（PMSA CP15 總表）收錄**全部可讀暫存器**；
+N25/N45 收錄標準 machine-mode 全套＋Andes 專屬 CSR 39 顆。
 
 「位元定義已對照」＝該暫存器的欄位切在第幾位元，已逐欄對著官方文件核過。
 它**不代表**暫存器清單完整、也不代表 Reset 值驗過 —— 那些要晶片 TRM。

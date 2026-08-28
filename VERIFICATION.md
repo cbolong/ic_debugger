@@ -49,6 +49,10 @@
 | **重置值只寫官方明訂的**（mstatus 只有 MIE／MPRV＝0，PMP 只有 A／L＝0，其餘 `-`；**設計如此**：猜的 reset 會產生假的「≠ Reset」差異） | ::test_mstatus_reset_only_mie_and_mprv_are_defined、_pmpcfg0_entry_layout_and_reset、_a55_reset_values_are_not_fabricated | 兩份 RISC-V spec 全欄位＋A55 全暫存器 |
 | N25 與 N45 的標準 CSR 定義必須完全一致（防「只改了一邊」） | ::test_n25_and_n45_standard_csrs_are_identical | 兩份 spec 深度比對 |
 | **A55 欄位位置**鎖定 Arm 機器可讀架構規格（123 個具名欄位） | ::test_a55_field_positions_match_arm_machine_readable_spec、_a55_verified_registers_cite_the_machine_readable_spec | 12 顆暫存器逐欄＋Verified 出處字串 |
+| **R5 清單完整性**鎖定官方 DDI 0406C.d Table B5-11（PMSA 全部可讀暫存器 53 顆＋TCM/CPSR/FPU） | ::test_r5_covers_full_official_pmsa_readable_list、_r5_id_registers_verified_against_ddi0406 | 60 顆逐名＋ID 系列出處 |
+| **Andes 專屬 CSR 位置**鎖定 Andes 官方 QEMU（mmsc_cfg／micm_cfg／mmisc_ctl／mhsp_ctl 關鍵欄位＋CSR 編號） | ::test_riscv_andes_csr_positions_match_official_qemu | n25/n45 各 4 顆逐欄＋編號 |
+| **完整 PMP＋計數器群**存在性（pmpcfg0-3、pmpaddr0-15、mcycle/minstret/mhpm3-6 含 h 半） | ::test_riscv_full_pmp_and_counters_present | n25/n45 各 90 顆計數 |
+| **A55 擴充清單**鎖定（ID 全套／計時器／PMU／TF-A 實作定義顆） | ::test_a55_extended_registers_present、_a55_verified_registers_cite_the_machine_readable_spec | 55 顆計數＋23 顆逐名＋出處分類 |
 
 ## 3. bin 解析與對應（bin_parser）
 

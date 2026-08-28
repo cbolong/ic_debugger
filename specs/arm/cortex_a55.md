@@ -2,7 +2,7 @@
 # Version: r2p0 · ARMv8.2-A AArch64
 # Width: 64
 # Source: Arm Architecture Reference Manual for A-profile (ARM DDI 0487)／Cortex-A55 TRM (ARM 100442)
-# Status: ⚠ 20 顆中有 14 顆的**欄位位置**已逐欄對照 Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a 的 bitfield 定義，由 Arm 官方 machine-readable specification 產生），125 個具名欄位全數相符（出處見各暫存器的 Verified）；另 6 顆（CurrentEL／DAIF／VBAR_EL1／FAR_EL1／ELR_EL1／CNTFRQ_EL0）該模型沒有對應 bitfield，仍未對照。**尚未對照 Cortex-A55 TRM 與 DDI 0487 原文**（本環境無法連上 developer.arm.com）：本核心是 Armv8.2-A，v8.3 之後才加入的欄位在本檔一律標 RES0；Reset 值與 IMPLEMENTATION DEFINED 的部分都還沒核對。落差見本檔開頭的註解
+# Status: ⚠ 55 顆中 41 顆的欄位位置已逐欄對照 Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a 的 bitfield／register 定義，由 Arm 官方 machine-readable specification 產生），3 顆實作定義暫存器（CPUECTLR／CPUACTLR／CPUPWRCTLR）的編碼與部分位元對照 ARM 官方 Trusted Firmware-A 原始碼；出處見各暫存器的 Verified。其餘 11 顆（CurrentEL／DAIF／VBAR_EL1／FAR_EL1／ELR_EL1／CNTFRQ_EL0／CNTP_TVAL／CNTV_TVAL／CCSIDR_EL1／REVIDR_EL1／AIDR_EL1）無對應機讀定義或版本佈局不同，仍未對照。**尚未對照 Cortex-A55 TRM 與 DDI 0487 原文**（本環境連不上 developer.arm.com）：本核心是 Armv8.2-A，較新架構版本的欄位在本檔標明「本核心讀 0」；Reset 值與實作定義暫存器的完整位元表都還沒核對。落差見檔頭註解
 # Description: AArch64 EL1 系統暫存器常用子集（識別、控制、位址轉換、例外狀態）
 
 <!--
@@ -24,7 +24,26 @@
      位元位置在版本之間不會移動（新功能佔用原本的 RES0），所以位置相符
      可信；但「這顆核心到底有沒有這個欄位」只有 A55 TRM 說了算。
 
-  ── 與官方文件的落差 ───────────────────────────────────────────────
+  ── 與官方文件的剩餘落差（2026-08-28 完整化改版後）────────────────
+  本檔已收錄 55 顆：識別（MIDR／MPIDR／REVIDR／AIDR＋AArch64 ID 全套 8 顆
+  ＋CCSIDR／CLIDR／CSSELR）、控制與位址轉換（SCTLR／CPACR／TCR／TTBR0/1／
+  MAIR）、例外狀態（ESR／FAR／ELR／SPSR／VBAR／AFSR0/1）、context/thread
+  （CONTEXTIDR／TPIDR_EL1／TPIDR_EL0／TPIDRRO_EL0）、Generic Timer 9 顆、
+  PMU 7 顆、實作定義 3 顆（CPUECTLR／CPUACTLR／CPUPWRCTLR）。
+  仍未收錄（需要時照格式補）：
+   * EL2／EL3 全部暫存器（SCTLR_EL2/EL3、HCR_EL2、SCR_EL3、VTTBR_EL2…）
+     — 本檔以 EL1 除錯視角為範圍
+   * PMU 的 PMEVCNTR0-5／PMEVTYPER0-5（個別計數器直接視圖；本檔收
+     PMSELR＋PMXEV* 間接視圖即可讀全部）、PMCEID0/1、PMSWINC（WO）、
+     PMINTENSET/CLR（中斷路徑）、PMMIR
+   * AArch32 視圖的 ID 暫存器（ID_PFR0 等 AArch64 鏡像）、MVFR0-2
+   * ID_AA64AFR0/1_EL1（實作定義特徵）、ID_AA64ZFR0（SVE，A55 無）
+   * RAS 群（ERR*）、AMU（A55 無）、SPE（A55 無）、GIC 系統暫存器
+     （ICC_*，依 GIC 組態）
+   * DSU 叢集暫存器（CLUSTERCFR_EL1 等；TF-A 的 dsu_def.h 可為編碼憑據）
+   * CPUCFR_EL1、L2CTLR_EL1 等其餘實作定義暫存器（需 A55 TRM）
+
+  ── 與官方文件的落差（2026-08-24 首輪稽核備註）─────────────────────
   本檔收錄的 20 顆是「除錯最常看的 EL1 系統暫存器」，**遠不是完整清單**：
   AArch64 架構定義的系統暫存器有數百顆（DDI 0487 附錄），Cortex-A55 TRM
   另有一整組 IMPLEMENTATION DEFINED 暫存器。需要哪顆就照格式補哪顆。
@@ -728,3 +747,553 @@
 |-------|-----------|--------|-------|-------------|
 | 63:32 | RES0      | RO     | 0     | 保留 |
 | 31:0  | Frequency | RW     | -     | 系統計時器頻率（Hz） |
+
+## REVIDR_EL1
+- Offset: 0x0A0
+- Reset: -
+- Description: Revision ID Register — 實作特定小改版資訊，須與 MIDR_EL1 一併解讀（讀值＝MIDR 即未實作；MRS Rt,REVIDR_EL1；欄位意義需 A55 TRM，尚未取得）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | REVIDR | RO | - | 實作定義 |
+
+## AIDR_EL1
+- Offset: 0x0A8
+- Reset: -
+- Description: Auxiliary ID Register — 實作定義的補充識別（A55 TRM 定義其讀值，尚未取得；MRS Rt,AIDR_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | AIDR | RO | - | 實作定義 |
+
+## ID_AA64PFR1_EL1
+- Offset: 0x0B0
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64PFR1_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Processor Feature Register 1（MRS Rt,ID_AA64PFR1_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | PFAR | RO | - | 實體錯誤位址擴充 |
+| 59:56 | DF2 | RO | - | 二次錯誤注入 |
+| 55:52 | MTEX | RO | - | MTE 擴充 |
+| 51:48 | THE | RO | - | 轉譯強化 |
+| 47:44 | GCS | RO | - | Guarded Control Stack |
+| 43:40 | MTE_frac | RO | - | MTE 次版本 |
+| 39:36 | NMI | RO | - | 非遮罩中斷支援 |
+| 35:32 | CSV2_frac | RO | - | CSV2 次版本 |
+| 31:28 | RNDR_trap | RO | - | 亂數 trap |
+| 27:24 | SME | RO | - | SME 支援 |
+| 23:20 | RES0 | RO | - | 保留 |
+| 19:16 | MPAM_frac | RO | - | MPAM 次版本 |
+| 15:12 | RAS_frac | RO | - | RAS 次版本 |
+| 11:8 | MTE | RO | - | 記憶體標籤擴充 |
+| 7:4 | SSBS | RO | - | 推測性 Store Bypass Safe |
+| 3:0 | BT | RO | - | 分支目標識別（BTI） |
+
+## ID_AA64DFR0_EL1
+- Offset: 0x0B8
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64DFR0_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Debug Feature Register 0 — 中斷點／監看點數量與 PMU 版本（MRS Rt,ID_AA64DFR0_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | HPMN0 | RO | - | HPMN 可為 0 |
+| 59:56 | ExtTrcBuff | RO | - | 外部 trace buffer |
+| 55:52 | BRBE | RO | - | Branch Record Buffer |
+| 51:48 | MTPMU | RO | - | 多執行緒 PMU |
+| 47:44 | TraceBuffer | RO | - | trace buffer 擴充 |
+| 43:40 | TraceFilt | RO | - | trace 過濾 |
+| 39:36 | DoubleLock | RO | - | OS Double Lock |
+| 35:32 | PMSVer | RO | - | 統計剖析（SPE）版本 |
+| 31:28 | CTX_CMPs | RO | - | context 比對中斷點數 − 1 |
+| 27:24 | SEBEP | RO | - | 同步例外剖析 |
+| 23:20 | WRPs | RO | - | 監看點數 − 1 |
+| 19:16 | PMSS | RO | - | PMU 快照 |
+| 15:12 | BRPs | RO | - | 中斷點數 − 1 |
+| 11:8 | PMUVer | RO | - | PMU 架構版本 |
+| 7:4 | TraceVer | RO | - | trace 支援 |
+| 3:0 | DebugVer | RO | - | 除錯架構版本 |
+
+## ID_AA64ISAR0_EL1
+- Offset: 0x0C0
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64ISAR0_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Instruction Set Attribute Register 0 — 密碼學／原子／CRC 指令支援（MRS Rt,ID_AA64ISAR0_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | RNDR | RO | - | 亂數指令 |
+| 59:56 | TLB | RO | - | TLBI 範圍操作 |
+| 55:52 | TS | RO | - | 旗標操作指令 |
+| 51:48 | FHM | RO | - | FMLAL/FMLSL |
+| 47:44 | DP | RO | - | 點積指令 |
+| 43:40 | SM4 | RO | - | SM4 指令 |
+| 39:36 | SM3 | RO | - | SM3 指令 |
+| 35:32 | SHA3 | RO | - | SHA3 指令 |
+| 31:28 | RDM | RO | - | SQRDMLAH/SQRDMLSH |
+| 27:24 | TME | RO | - | 交易記憶體 |
+| 23:20 | Atomic | RO | - | LSE 原子指令 |
+| 19:16 | CRC32 | RO | - | CRC32 指令 |
+| 15:12 | SHA2 | RO | - | SHA2 指令 |
+| 11:8 | SHA1 | RO | - | SHA1 指令 |
+| 7:4 | AES | RO | - | AES 指令 |
+| 3:0 | RES0 | RO | - | 保留 |
+
+## ID_AA64ISAR1_EL1
+- Offset: 0x0C8
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64ISAR1_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Instruction Set Attribute Register 1 — 指標驗證／原子記憶體語意等（MRS Rt,ID_AA64ISAR1_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | LS64 | RO | - | 64-byte 載入儲存 |
+| 59:56 | XS | RO | - | XS 屬性 |
+| 55:52 | I8MM | RO | - | Int8 矩陣乘 |
+| 51:48 | DGH | RO | - | Data Gathering Hint |
+| 47:44 | BF16 | RO | - | BFloat16 |
+| 43:40 | SPECRES | RO | - | 預測失效指令 |
+| 39:36 | SB | RO | - | Speculation Barrier |
+| 35:32 | FRINTTS | RO | - | FRINT32/64 |
+| 31:28 | GPI | RO | - | 實作定義 generic PAC |
+| 27:24 | GPA | RO | - | QARMA generic PAC |
+| 23:20 | LRCPC | RO | - | LDAPR 系列 |
+| 19:16 | FCMA | RO | - | 複數運算 |
+| 15:12 | JSCVT | RO | - | JavaScript 轉換 |
+| 11:8 | API | RO | - | 實作定義位址 PAC |
+| 7:4 | APA | RO | - | QARMA 位址 PAC |
+| 3:0 | DPB | RO | - | DC CVAP（持久性清理） |
+
+## ID_AA64MMFR1_EL1
+- Offset: 0x0D0
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64MMFR1_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Memory Model Feature Register 1 — PAN／VHE／HPDS 等（MRS Rt,ID_AA64MMFR1_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | ECBHB | RO | - | 分支歷史清除行為 |
+| 59:56 | CMOW | RO | - | cache 維護權限檢查 |
+| 55:52 | TIDCP1 | RO | - | 實作定義暫存器 trap |
+| 51:48 | nTLBPA | RO | - | TLB 中介位址快取資訊 |
+| 47:44 | AFP | RO | - | 替代浮點行為 |
+| 43:40 | HCX | RO | - | HCRX_EL2 支援 |
+| 39:36 | ETS | RO | - | 增強轉譯同步 |
+| 35:32 | TWED | RO | - | WFE trap 延遲 |
+| 31:28 | XNX | RO | - | EL0/EL1 XN 區分 |
+| 27:24 | SpecSEI | RO | - | 推測性 SError |
+| 23:20 | PAN | RO | - | 特權存取禁止（PAN） |
+| 19:16 | LO | RO | - | LORegions |
+| 15:12 | HPDS | RO | - | 階層式權限停用 |
+| 11:8 | VH | RO | - | 虛擬化主機擴充（VHE） |
+| 7:4 | VMIDBits | RO | - | VMID 位元數 |
+| 3:0 | HAFDBS | RO | - | 硬體 Access/Dirty 旗標 |
+
+## ID_AA64MMFR2_EL1
+- Offset: 0x0D8
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64MMFR2_EL1_Type — 欄位位置逐欄相符
+- Description: AArch64 Memory Model Feature Register 2 — CnP／UAO／IESB 等（MRS Rt,ID_AA64MMFR2_EL1）（特徵值意義見 DDI 0487；v8.3 之後才引入的欄位在本核心（v8.2）讀 0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:60 | E0PD | RO | - | EL0 轉譯早期停用 |
+| 59:56 | EVT | RO | - | 增強虛擬化 trap |
+| 55:52 | BBM | RO | - | break-before-make 等級 |
+| 51:48 | TTL | RO | - | TTL 提示 |
+| 47:44 | RES0 | RO | - | 保留 |
+| 43:40 | FWB | RO | - | stage2 強制 write-back |
+| 39:36 | IDS | RO | - | ID 空間 trap 回報 |
+| 35:32 | AT | RO | - | 非對齊單拷貝原子性 |
+| 31:28 | ST | RO | - | 小型轉譯表 |
+| 27:24 | NV | RO | - | 巢狀虛擬化 |
+| 23:20 | CCIDX | RO | - | CCSIDR 大索引格式（本核心讀 0：CCSIDR_EL1 用 32-bit 佈局） |
+| 19:16 | VARange | RO | - | 虛擬位址範圍 |
+| 15:12 | IESB | RO | - | 隱含 error barrier |
+| 11:8 | LSM | RO | - | LSMAOE/nTLSMD 支援 |
+| 7:4 | UAO | RO | - | 使用者存取覆寫 |
+| 3:0 | CnP | RO | - | Common not Private |
+
+## CCSIDR_EL1
+- Offset: 0x0E0
+- Reset: -
+- Description: Cache Size ID Register — 由 CSSELR_EL1 選定之快取的參數。本核心 ID_AA64MMFR2.CCIDX=0，用 32-bit 佈局（NumSets[27:13]/Assoc[12:3]/LineSize[2:0]，同 ARMv8 無 CCIDX 定義；機讀模型為 v9.4 CCIDX 佈局，兩者不同，故本顆不標對照，佈局請以 DDI 0487 無 CCIDX 版為準；MRS Rt,CCSIDR_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:28 | RES0 | RO | - | 保留 |
+| 27:13 | NumSets | RO | - | set 數 − 1 |
+| 12:3 | Associativity | RO | - | 關聯度 − 1 |
+| 2:0 | LineSize | RO | - | log2(每 line bytes) − 4（0 = 16 bytes） |
+
+## CSSELR_EL1
+- Offset: 0x0E8
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CSSELR_EL1_Type — 欄位位置逐欄相符
+- Description: Cache Size Selection Register — 選擇 CCSIDR_EL1 顯示哪個快取（MRS/MSR Rt,CSSELR_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:5 | RES0 | RO | - | 保留 |
+| 4 | TnD | RW | - | Tag／Data 選擇（無 MTE 時 RES0） |
+| 3:1 | Level | RW | - | 快取層級（0b000 = L1） |
+| 0 | InD | RW | - | 指令／資料選擇 |
+
+### Enum: InD
+- 0: 資料或 unified cache
+- 1: 指令 cache
+
+## AFSR0_EL1
+- Offset: 0x0F0
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR0_EL1（無切分的整顆暫存器）
+- Description: Auxiliary Fault Status Register 0 — 實作定義的故障補充資訊（A55 未使用，讀 0；MRS Rt,AFSR0_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | IMPDEF | RW | - | 實作定義（A55 為 RES0） |
+
+## AFSR1_EL1
+- Offset: 0x0F8
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR1_EL1（無切分的整顆暫存器）
+- Description: Auxiliary Fault Status Register 1 — 實作定義的故障補充資訊（A55 未使用，讀 0；MRS Rt,AFSR1_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | IMPDEF | RW | - | 實作定義（A55 為 RES0） |
+
+## CONTEXTIDR_EL1
+- Offset: 0x100
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CONTEXTIDR_EL1_Type — 欄位位置逐欄相符
+- Description: Context ID Register — 目前程序識別碼，供 debug／trace（MRS/MSR Rt,CONTEXTIDR_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:32 | RES0 | RO | - | 保留 |
+| 31:0 | PROCID | RW | - | 程序識別值 |
+
+## TPIDR_EL1
+- Offset: 0x108
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register TPIDR_EL1（無切分的整顆暫存器）
+- Description: EL1 軟體執行緒 ID（僅特權可見） — 硬體永不更新（MRS Rt,TPIDR_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | TID | RW | - | 軟體定義 |
+
+## TPIDR_EL0
+- Offset: 0x110
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register TPIDR_EL0（無切分的整顆暫存器）
+- Description: EL0 讀寫執行緒 ID（典型為 TLS 指標） — 硬體永不更新（MRS Rt,TPIDR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | TID | RW | - | 軟體定義 |
+
+## TPIDRRO_EL0
+- Offset: 0x118
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register TPIDRRO_EL0（無切分的整顆暫存器）
+- Description: EL0 唯讀執行緒 ID（EL1 可寫） — 硬體永不更新（MRS Rt,TPIDRRO_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | TID | RW | - | 軟體定義 |
+
+## CNTKCTL_EL1
+- Offset: 0x120
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CNTKCTL_EL1_Type — 欄位位置逐欄相符
+- Description: Counter-timer Kernel Control — EL0 對計時器／計數器的存取控制（MRS/MSR Rt,CNTKCTL_EL1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:18 | RES0 | RO | - | 保留 |
+| 17 | EVNTIS | RW | - | 事件流位元選擇放大（v8.6；本核心讀 0） |
+| 16:10 | RES0 | RO | - | 保留 |
+| 9 | EL0PTEN | RW | - | EL0 可存取實體計時器（CNTP_*） |
+| 8 | EL0VTEN | RW | - | EL0 可存取虛擬計時器（CNTV_*） |
+| 7:4 | EVNTI | RW | - | 事件流觸發位元選擇 |
+| 3 | EVNTDIR | RW | - | 事件流觸發邊緣 |
+| 2 | EVNTEN | RW | - | 事件流致能 |
+| 1 | EL0VCTEN | RW | - | EL0 可讀 CNTVCT／CNTFRQ |
+| 0 | EL0PCTEN | RW | - | EL0 可讀 CNTPCT／CNTFRQ |
+
+## CNTPCT_EL0
+- Offset: 0x128
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register CNTPCT_EL0（無切分的整顆暫存器）
+- Description: Physical Count — 實體計數器目前值（頻率見 CNTFRQ_EL0；MRS Rt,CNTPCT_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | COUNT | RO | - | 實體計數值 |
+
+## CNTVCT_EL0
+- Offset: 0x130
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register CNTVCT_EL0（無切分的整顆暫存器）
+- Description: Virtual Count — 虛擬計數器目前值（= CNTPCT − CNTVOFF；MRS Rt,CNTVCT_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | COUNT | RO | - | 虛擬計數值 |
+
+## CNTP_CTL_EL0
+- Offset: 0x138
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CNTP_CTL_EL0_Type — 欄位位置逐欄相符
+- Description: EL1 Physical Timer Control（MRS/MSR Rt,CNTP_CTL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:3 | RES0 | RO | - | 保留 |
+| 2 | ISTATUS | RO | - | 計時器條件已成立（中斷狀態，不受 IMASK 影響） |
+| 1 | IMASK | RW | - | 中斷遮罩 |
+| 0 | ENABLE | RW | - | 計時器致能 |
+
+### Enum: ENABLE
+- 0: 計時器停用
+- 1: 計時器啟用
+
+### Enum: IMASK
+- 0: 中斷未遮罩
+- 1: 中斷已遮罩
+
+## CNTP_CVAL_EL0
+- Offset: 0x140
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register CNTP_CVAL_EL0（無切分的整顆暫存器）
+- Description: EL1 Physical Timer CompareValue — CNTPCT ≥ CVAL 時觸發（MRS/MSR Rt,CNTP_CVAL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | CVAL | RW | - | 比較值 |
+
+## CNTP_TVAL_EL0
+- Offset: 0x148
+- Reset: -
+- Description: EL1 Physical Timer TimerValue — 倒數視圖（讀值 = CVAL − CNTPCT 的低 32 位；MRS/MSR Rt,CNTP_TVAL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:32 | RES0 | RO | - | 保留 |
+| 31:0 | TVAL | RW | - | 倒數值（有號） |
+
+## CNTV_CTL_EL0
+- Offset: 0x150
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield CNTV_CTL_EL0_Type — 欄位位置逐欄相符
+- Description: Virtual Timer Control（MRS/MSR Rt,CNTV_CTL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:3 | RES0 | RO | - | 保留 |
+| 2 | ISTATUS | RO | - | 計時器條件已成立（中斷狀態，不受 IMASK 影響） |
+| 1 | IMASK | RW | - | 中斷遮罩 |
+| 0 | ENABLE | RW | - | 計時器致能 |
+
+### Enum: ENABLE
+- 0: 計時器停用
+- 1: 計時器啟用
+
+### Enum: IMASK
+- 0: 中斷未遮罩
+- 1: 中斷已遮罩
+
+## CNTV_CVAL_EL0
+- Offset: 0x158
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register CNTV_CVAL_EL0（無切分的整顆暫存器）
+- Description: Virtual Timer CompareValue（MRS/MSR Rt,CNTV_CVAL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | CVAL | RW | - | 比較值 |
+
+## CNTV_TVAL_EL0
+- Offset: 0x160
+- Reset: -
+- Description: Virtual Timer TimerValue — 倒數視圖（MRS/MSR Rt,CNTV_TVAL_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:32 | RES0 | RO | - | 保留 |
+| 31:0 | TVAL | RW | - | 倒數值（有號） |
+
+## PMCR_EL0
+- Offset: 0x168
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMCR_EL0_Type（FZS/FZO/LP 為 v8.5+ 欄位，本核心讀 0） — 欄位位置逐欄相符
+- Description: Performance Monitors Control Register（MRS/MSR Rt,PMCR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:33 | RES0 | RO | - | 保留 |
+| 32 | FZS | RO | - | SPE 凍結（v8.7；本核心讀 0） |
+| 31:24 | IMP | RO | - | 實作者代碼（同 MIDR 解讀） |
+| 23:16 | IDCODE | RO | - | 識別碼 |
+| 15:11 | N | RO | - | 事件計數器數量 |
+| 10 | RES0 | RO | - | 保留 |
+| 9 | FZO | RO | - | 溢位凍結（v8.7；本核心讀 0） |
+| 8 | RES0 | RO | - | 保留 |
+| 7 | LP | RO | - | 長事件計數器（v8.5；本核心讀 0） |
+| 6 | LC | RW | - | 長週期計數器致能（64-bit cycle overflow） |
+| 5 | DP | RW | - | 禁止情境下停用 cycle counter |
+| 4 | X | RW | - | 事件匯出致能 |
+| 3 | D | RW | - | cycle counter 除 64 |
+| 2 | C | WO | - | 寫 1 歸零 PMCCNTR |
+| 1 | P | WO | - | 寫 1 歸零全部事件計數器 |
+| 0 | E | RW | 0 | 計數器總致能 |
+
+### Enum: E
+- 0: 全部計數器停用
+- 1: 全部計數器啟用
+
+## PMCNTENSET_EL0
+- Offset: 0x170
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMCNTENSET_EL0_Type（以 A55 的 6 個事件計數器呈現） — 欄位位置逐欄相符
+- Description: Performance Monitors Count Enable Set — 讀出目前致能；寫 1 設定（MRS/MSR Rt,PMCNTENSET_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:33 | RES0 | RO | - | 保留 |
+| 32 | F0 | RO | - | 固定功能計數器 0（v9.4 欄位；本核心讀 0） |
+| 31 | C | RW | - | PMCCNTR（cycle counter） |
+| 30:6 | RES0 | RO | - | 保留（超出實作計數器數的位元 RAZ/WI） |
+| 5 | P5 | RW | - | 事件計數器 5 |
+| 4 | P4 | RW | - | 事件計數器 4 |
+| 3 | P3 | RW | - | 事件計數器 3 |
+| 2 | P2 | RW | - | 事件計數器 2 |
+| 1 | P1 | RW | - | 事件計數器 1 |
+| 0 | P0 | RW | - | 事件計數器 0 |
+
+## PMOVSCLR_EL0
+- Offset: 0x178
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMOVSCLR_EL0_Type（以 A55 的 6 個事件計數器呈現） — 欄位位置逐欄相符
+- Description: Performance Monitors Overflow Flag Status Clear — 溢位旗標（寫 1 清除；MRS/MSR Rt,PMOVSCLR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:33 | RES0 | RO | - | 保留 |
+| 32 | F0 | RO | - | 固定功能計數器 0（v9.4 欄位；本核心讀 0） |
+| 31 | C | RW | - | PMCCNTR（cycle counter） |
+| 30:6 | RES0 | RO | - | 保留（超出實作計數器數的位元 RAZ/WI） |
+| 5 | P5 | RW | - | 事件計數器 5 |
+| 4 | P4 | RW | - | 事件計數器 4 |
+| 3 | P3 | RW | - | 事件計數器 3 |
+| 2 | P2 | RW | - | 事件計數器 2 |
+| 1 | P1 | RW | - | 事件計數器 1 |
+| 0 | P0 | RW | - | 事件計數器 0 |
+
+## PMCCNTR_EL0
+- Offset: 0x180
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register PMCCNTR_EL0（無切分的整顆暫存器）
+- Description: Performance Monitors Cycle Count — 64-bit 週期計數器（MRS/MSR Rt,PMCCNTR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:0 | CCNT | RW | - | 週期計數值 |
+
+## PMCCFILTR_EL0
+- Offset: 0x188
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMCCFILTR_EL0_Type（NSK/NSU/NSH/M/SH/T/RL* 依安全狀態與擴充存在） — 欄位位置逐欄相符
+- Description: Performance Monitors Cycle Count Filter — 週期計數的特權過濾（MRS/MSR Rt,PMCCFILTR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:32 | RES0 | RO | - | 保留 |
+| 31 | P | RW | - | EL1 不計數 |
+| 30 | U | RW | - | EL0 不計數 |
+| 29 | NSK | RW | - | Non-secure EL1 計數選擇 |
+| 28 | NSU | RW | - | Non-secure EL0 計數選擇 |
+| 27 | NSH | RW | - | EL2 計數致能 |
+| 26 | M | RW | - | Secure EL3 計數選擇 |
+| 25 | RES0 | RO | - | 保留 |
+| 24 | SH | RW | - | Secure EL2 計數選擇（無 Secure EL2 時 RES0） |
+| 23 | T | RW | - | 交易狀態過濾（無 TME 時 RES0） |
+| 22 | RLK | RW | - | Realm EL1 計數（無 RME 時 RES0） |
+| 21 | RLU | RW | - | Realm EL0 計數（無 RME 時 RES0） |
+| 20 | RLH | RW | - | Realm EL2 計數（無 RME 時 RES0） |
+| 19:0 | RES0 | RO | - | 保留 |
+
+## PMSELR_EL0
+- Offset: 0x190
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMSELR_EL0_Type — 欄位位置逐欄相符
+- Description: Performance Monitors Event Counter Selection — 選擇 PMXEV* 操作的計數器（MRS/MSR Rt,PMSELR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:5 | RES0 | RO | - | 保留 |
+| 4:0 | SEL | RW | - | 計數器編號（31 = 選 PMCCNTR） |
+
+## PMUSERENR_EL0
+- Offset: 0x198
+- Reset: -
+- Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield PMUSERENR_EL0_Type（TID/IR/UEN 為 v8.9/FEAT_PMUv3p9 欄位，本核心讀 0） — 欄位位置逐欄相符
+- Description: Performance Monitors User Enable — EL0 存取 PMU 的許可（MRS/MSR Rt,PMUSERENR_EL0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:7 | RES0 | RO | - | 保留 |
+| 6 | TID | RO | - | trap ID（v8.9；本核心讀 0） |
+| 5 | IR | RO | - | 指令引退唯讀（v8.9；本核心讀 0） |
+| 4 | UEN | RO | - | 細粒度使用者致能（v8.9；本核心讀 0） |
+| 3 | ER | RW | - | EL0 可讀事件計數器 |
+| 2 | CR | RW | - | EL0 可讀 cycle counter |
+| 1 | SW | RW | - | EL0 可寫 PMSWINC |
+| 0 | EN | RW | 0 | EL0 存取 PMU 總致能 |
+
+## CPUECTLR_EL1
+- Offset: 0x1A0
+- Reset: -
+- Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C1_4 與 L1WSCTL 位置經 ARM 官方原始碼核對
+- Description: CPU Extended Control Register — 核心擴充控制（實作定義；完整位元表需 A55 TRM，本表僅列 ARM 官方開源碼證實的欄位；MRS S3_0_C15_C1_4）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:27 | IMPDEF_H | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 26:25 | L1WSCTL | RW | - | L1 write streaming 門檻控制（TF-A errata 用） |
+| 24:0 | IMPDEF_L | RW | - | 實作定義（切分待 A55 TRM 對照） |
+
+## CPUACTLR_EL1
+- Offset: 0x1A8
+- Reset: -
+- Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C1_0 與三個 errata 位的位置經 ARM 官方原始碼核對
+- Description: CPU Auxiliary Control Register — 核心輔助控制（實作定義；各 errata 開關；完整位元表需 A55 TRM；MRS S3_0_C15_C1_0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:50 | IMPDEF_H | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 49 | DIS_L1_PGWLK | RW | - | 停用 L1 pagewalk 快取（TF-A errata 1221012） |
+| 48:32 | IMPDEF_M2 | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 31 | DIS_DUAL_ISSUE | RW | - | 停用雙發射（TF-A errata 778703） |
+| 30:25 | IMPDEF_M1 | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 24 | DIS_WR_STREAM | RW | - | 停用 write streaming（TF-A errata 778703） |
+| 23:0 | IMPDEF_L | RW | - | 實作定義（切分待 A55 TRM 對照） |
+
+## CPUPWRCTLR_EL1
+- Offset: 0x1B0
+- Reset: -
+- Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C2_7 與 CORE_PWRDN_EN 位置經 ARM 官方原始碼核對
+- Description: CPU Power Control Register — 核心電源控制（實作定義；MRS S3_0_C15_C2_7）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 63:1 | IMPDEF | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 0 | CORE_PWRDN_EN | RW | - | WFI 時允許核心斷電 |
+
+### Enum: CORE_PWRDN_EN
+- 0: WFI 不斷電
+- 1: WFI 進入斷電

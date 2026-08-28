@@ -20,9 +20,9 @@ spec 以 Markdown 檔維護在 [`specs/<廠商>/`](specs/)，push 後由 CI 自�
 >
 > | Spec | 位元定義已對照 | 對照的官方文件 |
 > |---|---|---|
-> | Andes N25／N45 | 20/20 | RISC-V 特權架構規格 v1.11（ratified） |
-> | ARM Cortex-A55 | 14/20 | Arm 機器可讀架構規格（sail-arm bitfield 定義） |
-> | ARM Cortex-R5 | 1/18 | ARM DDI 0460D（Cortex-R5 TRM）— 僅 TCMTR |
+> | ARM Cortex-R5 | 58/60 | ARM DDI 0406C.d 官方 PDF（ARMv7-A/R ARM）＋DDI 0460D（TCMTR） |
+> | Andes N25／N45 | 90/90 | RISC-V 特權架構規格 v1.11 ＋ Andes 官方 QEMU（andestech/qemu） |
+> | ARM Cortex-A55 | 44/55 | Arm 機讀架構規格（sail-arm）＋ARM 官方 TF-A（實作定義顆） |
 >
 > 「位元定義已對照」只保證**欄位切在第幾位元**是照官方文件抄的。它不保證
 > 暫存器清單完整、也不保證 Reset 值正確 —— 那些只有晶片 TRM／datasheet 說了算，

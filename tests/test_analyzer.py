@@ -186,8 +186,8 @@ def test_sample_bin_against_r5_spec():
     binf = load_bin(ROOT / "examples" / "sample_r5.bin")
     payload = build_payload(spec, binf)
     st = payload["stats"]
-    assert st["total"] == 18 and st["covered"] == 18
-    assert st["bin_size"] == st["spec_span_bytes"] == 72
+    assert st["total"] == 60 and st["covered"] == 60
+    assert st["bin_size"] == st["spec_span_bytes"] == 240
 
     regs = {r["name"]: r for r in payload["registers"]}
     assert regs["MIDR"]["differs"] is False
@@ -197,9 +197,9 @@ def test_sample_bin_against_r5_spec():
     assert m["enum_label"] == "MPU 開啟" and m["differs"] is True
     dfsr = regs["DFSR"]
     fs = next(r for r in dfsr["rows"] if r["name"] == "FS[3:0]")
-    assert fs["enum_label"] == "對齊（alignment）fault"
+    assert "對齊故障" in fs["enum_label"]  # FS[4]=0 讀法（官方 Table B5-8）
     wnr = next(r for r in dfsr["rows"] if r["name"] == "WnR")
-    assert wnr["enum_label"] == "寫入時發生"
+    assert wnr["enum_label"] == "由寫入指令造成"  # 官方 WnR 用語
     # SCTLR 全 bit 涵蓋 → 不該有未定義列
     assert all(r["kind"] == "field" for r in sctlr["rows"])
 
