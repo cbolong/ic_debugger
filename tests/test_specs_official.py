@@ -43,9 +43,14 @@ def riscv(request):
 # ── 對照狀態本身 ────────────────────────────────────────────────────
 
 def test_riscv_specs_fully_verified_against_official_v1_11(riscv):
+    """標準 CSR 的出處是 RISC-V v1.11 官方規格；Andes 專屬 CSR 的出處是
+    Andes 原廠 QEMU（github.com/andestech/qemu）。每顆都必須有其一。"""
     assert riscv.registers, riscv.spec_id
     for r in riscv.registers:
-        assert "v1.11" in r.verified, f"{riscv.spec_id}/{r.name} 缺官方出處"
+        assert ("v1.11" in r.verified) or ("andestech/qemu" in r.verified), \
+            f"{riscv.spec_id}/{r.name} 缺官方出處"
+    andes_regs = [r for r in riscv.registers if "andestech/qemu" in r.verified]
+    assert len(andes_regs) == 39, "Andes 專屬 CSR 應為 39 顆"
 
 
 def test_n25_and_n45_standard_csrs_are_identical():
@@ -341,13 +346,21 @@ def test_a55_field_positions_match_arm_machine_readable_spec():
 
 
 def test_a55_verified_registers_cite_the_machine_readable_spec():
-    """標了 Verified 的 A55 暫存器必須指名對照來源；沒對照的就不准標。"""
+    """標了 Verified 的 A55 暫存器必須指名對照來源；沒對照的就不准標。
+
+    來源只有兩種：Arm 機讀架構規格（sail-arm）或 ARM 官方 TF-A 原始碼
+    （實作定義暫存器）。版本佈局與 v8.2 不同的（CCSIDR）與無機讀定義的
+    （CurrentEL／DAIF 等 11 顆）必須維持未標。"""
     spec = _spec("arm/cortex_a55.md")
-    verified = {r.name for r in spec.registers if r.verified}
-    assert verified == set(ARM_OFFICIAL_FIELDS) | {"TTBR0_EL1", "TTBR1_EL1"}
     for r in spec.registers:
         if r.verified:
-            assert "sail-arm" in r.verified, r.name
+            assert ("sail-arm" in r.verified) or ("arm-trusted-firmware" in r.verified), r.name
+    unverified = {r.name for r in spec.registers if not r.verified}
+    assert unverified == {"CurrentEL", "DAIF", "VBAR_EL1", "FAR_EL1", "ELR_EL1",
+                          "CNTFRQ_EL0", "CNTP_TVAL_EL0", "CNTV_TVAL_EL0",
+                          "CCSIDR_EL1", "REVIDR_EL1", "AIDR_EL1"}
+    tfa = {r.name for r in spec.registers if r.verified and "arm-trusted-firmware" in r.verified}
+    assert tfa == {"CPUECTLR_EL1", "CPUACTLR_EL1", "CPUPWRCTLR_EL1"}
 
 
 def test_a55_reset_values_are_not_fabricated():
@@ -370,9 +383,107 @@ def test_r5_reset_values_are_not_fabricated():
     spec = _spec("arm/cortex_r5.md")
     with_reset = [r for r in spec.registers if r.reset is not None]
     assert [r.name for r in with_reset] == ["MIDR"]
-    assert "尚未用 DDI 0460D 確認" in with_reset[0].desc
+    assert "尚未用 DDI 0460D 確認" in with_reset[0].verified
     ctr = _regs(spec)["CTR"]
     fmt = next(f for f in ctr.fields if f.name == "Format")
     assert fmt.reset == 0b100, "Format 是 ARMv7 架構固定值，可以留"
-    for name in ("CWG", "ERG", "DminLine", "L1Ip", "IminLine"):
+    # PMSA 官方版（DDI 0406C.d B6.1）bits[15:14] 是 RAO，沒有 VMSA 的 L1Ip 欄
+    assert not any(f.name == "L1Ip" for f in ctr.fields)
+    for name in ("CWG", "ERG", "DminLine", "IminLine"):
         assert next(f for f in ctr.fields if f.name == name).reset is None, name
+
+
+# ════════════════════════════════════════════════════════════════════
+# 完整性鎖定（2026-08-28 完整化改版）：清單本身就是官方事實
+# ════════════════════════════════════════════════════════════════════
+
+def test_r5_covers_full_official_pmsa_readable_list():
+    """R5 spec 必須涵蓋官方 DDI 0406C.d Table B5-11 的全部可讀暫存器。
+
+    設計如此：TCMTR 事故的根因就是清單不完整。此表照官方 PMSA CP15 總表
+    逐顆列出（排除純寫入操作、I 側 MPU（unified 不實作）、Generic Timer
+    （R5 未實作）——排除原因都寫在 spec 檔頭註解）。
+    """
+    spec = _spec("arm/cortex_r5.md")
+    names = [r.name for r in spec.registers]
+    official_readable = [
+        # c0 識別
+        "MIDR", "CTR", "TCMTR", "MPUIR", "MPIDR", "REVIDR",
+        "ID_PFR0", "ID_PFR1", "ID_DFR0", "ID_AFR0",
+        "ID_MMFR0", "ID_MMFR1", "ID_MMFR2", "ID_MMFR3",
+        "ID_ISAR0", "ID_ISAR1", "ID_ISAR2", "ID_ISAR3", "ID_ISAR4", "ID_ISAR5",
+        "CCSIDR", "CLIDR", "AIDR", "CSSELR",
+        # c1 控制
+        "SCTLR", "ACTLR", "CPACR",
+        # c5/c6 故障
+        "DFSR", "IFSR", "ADFSR", "AIFSR", "DFAR", "IFAR",
+        # c6 MPU
+        "RGNR", "DRBAR", "DRSR", "DRACR",
+        # c9 PMU
+        "PMCR", "PMCNTENSET", "PMCNTENCLR", "PMOVSR", "PMSELR",
+        "PMCEID0", "PMCEID1", "PMCCNTR", "PMXEVTYPER", "PMXEVCNTR",
+        "PMUSERENR", "PMINTENSET", "PMINTENCLR",
+        # c13
+        "CONTEXTIDR", "TPIDRURW", "TPIDRURO", "TPIDRPRW",
+    ]
+    missing = [n for n in official_readable if n not in names]
+    assert not missing, f"官方 Table B5-11 有、spec 沒有：{missing}"
+    assert len(spec.registers) == 60  # 官方清單 + ATCMRR/BTCMRR + CPSR + FPU 3 顆
+
+
+def test_r5_id_registers_verified_against_ddi0406():
+    """新增的 CPUID 暫存器全部要有 DDI 0406C.d 出處。"""
+    spec = _spec("arm/cortex_r5.md")
+    for r in spec.registers:
+        if r.name.startswith("ID_"):
+            assert "DDI 0406C.d" in r.verified, r.name
+
+
+def test_riscv_andes_csr_positions_match_official_qemu():
+    """Andes 專屬 CSR 的關鍵位元位置鎖定官方 QEMU（andes_cpu_bits.h）。"""
+    for spec_name in ("andes/n25.md", "andes/n45.md"):
+        regs = _regs(_spec(spec_name))
+        f = {x.name: (x.msb, x.lsb) for x in regs["mmsc_cfg"].fields}
+        assert f["ECC"] == (0, 0) and f["ECD"] == (3, 3) and f["PFT"] == (4, 4)
+        assert f["HSP"] == (5, 5) and f["PMNDS"] == (15, 15) and f["CCTLCSR"] == (16, 16)
+        assert f["MSC_EXT"] == (31, 31) and f["ADDPMC"] == (11, 7) and f["EXCSLVL"] == (21, 20)
+        f = {x.name: (x.msb, x.lsb) for x in regs["micm_cfg"].fields}
+        assert f["ISET"] == (2, 0) and f["IWAY"] == (5, 3) and f["ISZ"] == (8, 6)
+        assert f["ILMB"] == (14, 12) and f["ILMSZ"] == (19, 15)
+        f = {x.name: (x.msb, x.lsb) for x in regs["mmisc_ctl"].fields}
+        assert f["VEC_PLIC"] == (1, 1) and f["RVCOMPM"] == (2, 2) and f["BRPE"] == (3, 3)
+        assert f["MSA_UNA"] == (6, 6) and f["NEWNMI"] == (9, 9)
+        f = {x.name: (x.msb, x.lsb) for x in regs["mhsp_ctl"].fields}
+        assert f["OVF_EN"] == (0, 0) and f["UDF_EN"] == (1, 1) and f["SCHM"] == (2, 2)
+        assert f["U"] == (3, 3) and f["S"] == (4, 4) and f["M"] == (5, 5)
+        # CSR 編號寫進 Description（0xFC0 等）
+        assert "0xFC0" in regs["micm_cfg"].desc and "0x7C4" in regs["mxstatus"].desc
+
+
+def test_riscv_full_pmp_and_counters_present():
+    """完整 PMP（cfg0-3、addr0-15）與計數器群必須都在。"""
+    for spec_name in ("andes/n25.md", "andes/n45.md"):
+        names = {r.name for r in _spec(spec_name).registers}
+        for i in range(4):
+            assert f"pmpcfg{i}" in names
+        for i in range(16):
+            assert f"pmpaddr{i}" in names
+        for base in ("mcycle", "minstret"):
+            assert base in names and base + "h" in names
+        for i in range(3, 7):
+            assert f"mhpmcounter{i}" in names and f"mhpmcounter{i}h" in names
+            assert f"mhpmevent{i}" in names
+        assert len(names) == 90
+
+
+def test_a55_extended_registers_present():
+    """A55 擴充後的清單鎖定（55 顆）。"""
+    names = {r.name for r in _spec("arm/cortex_a55.md").registers}
+    for n in ("ID_AA64PFR1_EL1", "ID_AA64DFR0_EL1", "ID_AA64ISAR0_EL1", "ID_AA64ISAR1_EL1",
+              "ID_AA64MMFR1_EL1", "ID_AA64MMFR2_EL1", "CCSIDR_EL1", "CSSELR_EL1",
+              "CONTEXTIDR_EL1", "TPIDR_EL1", "TPIDR_EL0", "TPIDRRO_EL0",
+              "CNTKCTL_EL1", "CNTPCT_EL0", "CNTVCT_EL0", "CNTP_CTL_EL0", "CNTV_CTL_EL0",
+              "PMCR_EL0", "PMCCNTR_EL0", "PMUSERENR_EL0",
+              "CPUECTLR_EL1", "CPUACTLR_EL1", "CPUPWRCTLR_EL1"):
+        assert n in names, n
+    assert len(names) == 55
