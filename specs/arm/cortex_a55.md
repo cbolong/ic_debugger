@@ -2,7 +2,7 @@
 # Version: r2p0 · ARMv8.2-A AArch64
 # Width: 64
 # Source: Arm Architecture Reference Manual for A-profile (ARM DDI 0487)／Cortex-A55 TRM (ARM 100442)
-# Status: ⚠ 55 顆中 41 顆的欄位位置已逐欄對照 Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a 的 bitfield／register 定義，由 Arm 官方 machine-readable specification 產生），3 顆實作定義暫存器（CPUECTLR／CPUACTLR／CPUPWRCTLR）的編碼與部分位元對照 ARM 官方 Trusted Firmware-A 原始碼；出處見各暫存器的 Verified。其餘 11 顆（CurrentEL／DAIF／VBAR_EL1／FAR_EL1／ELR_EL1／CNTFRQ_EL0／CNTP_TVAL／CNTV_TVAL／CCSIDR_EL1／REVIDR_EL1／AIDR_EL1）無對應機讀定義或版本佈局不同，仍未對照。**尚未對照 Cortex-A55 TRM 與 DDI 0487 原文**（本環境連不上 developer.arm.com）：本核心是 Armv8.2-A，較新架構版本的欄位在本檔標明「本核心讀 0」；Reset 值與實作定義暫存器的完整位元表都還沒核對。落差見檔頭註解
+# Status: ⚠ 本檔定位為 **A55_EL1_debug_subset**（EL1 除錯視角常用集，非產品完整 register model；範圍見檔頭註解）。55 顆中 45 顆的欄位位置已親驗對照（41 顆依 Arm 機讀架構規格 sail-arm、CCSIDR 依 DDI 0406C.d 同佈局、3 顆實作定義顆之具名位依 ARM 官方 TF-A），出處見各暫存器的 Verified；其中 CPUECTLR／CPUPWRCTLR 的完整切分與多顆產品讀值依 2026-08 三輪交叉審查轉錄自 A55 TRM（100442_0200_02_en），該等內容標「審查轉錄」**尚未親驗原文**。2026-08-29 依交叉審查修正：SCTLR_EL1[29:28]→RES1、CCSIDR 補 WT/WB/RA/WA、AFSR0/1 與 CSSELR.TnD→RES0、REVIDR 移除 v7 別名語意、ID 暫存器逐欄標註產品存在性（位置不變）。CNTKCTL 的 EL0PTEN/EL0VTEN 為 v8.0 基線欄位（審查曾誤判為 ECV，已三方確認維持）。待親驗值清單見 SPEC_REVIEW_LOG.md
 # Description: AArch64 EL1 系統暫存器常用子集（識別、控制、位址轉換、例外狀態）
 
 <!--
@@ -168,8 +168,7 @@
 | 63:32 | RES0     | RO     | 0     | 保留 |
 | 31    | RES0     | RO     | 0     | ARMv8.3 EnIA（指標驗證），本核心未實作 |
 | 30    | RES0     | RO     | 0     | ARMv8.3 EnIB（指標驗證），本核心未實作 |
-| 29    | LSMAOE   | RW     | -     | Load/Store multiple 原子性與順序（相容性位元） |
-| 28    | nTLSMD   | RW     | -     | 對 Device 記憶體的 Load/Store multiple 是否受限 |
+| 29:28 | RES1    | RO     | 0b11  | 恆為 1（本核心無 FEAT_LSMAOC，架構規定 RES1；Linux kernel SCTLR_EL1_RES1 遮罩含 bit29/28、審查確認 A55 TRM Figure 3-162 同。2026-08 審查修正：舊版誤列為 LSMAOE/nTLSMD RW） |
 | 27    | RES0     | RO     | 0     | ARMv8.3 EnDA，本核心未實作 |
 | 26    | UCI      | RW     | 0     | EL0 是否可執行快取維護指令 |
 | 25    | EE       | RW     | 0     | EL1 資料存取 endianness |
@@ -635,11 +634,11 @@
 | 63:60 | CSV3     | RO     | -     | 推測執行側通道（快取）緩解 |
 | 59:56 | CSV2     | RO     | -     | 推測執行側通道（分支）緩解 |
 | 55:52 | RES0     | RO     | 0     | 保留 |
-| 51:48 | DIT      | RO     | -     | 資料無關時序（ARMv8.4） |
-| 47:44 | AMU      | RO     | -     | 活動監控單元 |
-| 43:40 | MPAM     | RO     | -     | 記憶體分區與監控 |
-| 39:36 | SEL2     | RO     | -     | Secure EL2 |
-| 35:32 | SVE      | RO     | -     | 可縮放向量擴充 |
+| 51:48 | DIT      | RO     | -     | 資料無關時序（ARMv8.4）。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 47:44 | AMU      | RO     | -     | 活動監控單元。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | MPAM     | RO     | -     | 記憶體分區與監控。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | SEL2     | RO     | -     | Secure EL2。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | SVE      | RO     | -     | 可縮放向量擴充。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 31:28 | RAS      | RO     | -     | 可靠性／可用性／可服務性擴充 |
 | 27:24 | GIC      | RO     | -     | GIC 系統暫存器介面 |
 | 23:20 | AdvSIMD  | RO     | -     | Advanced SIMD |
@@ -700,12 +699,12 @@
 | Bits  | Field     | Access | Reset | Description |
 |-------|-----------|--------|-------|-------------|
 | 63:48 | RES0      | RO     | 0     | 保留 |
-| 47:44 | ExS       | RO     | -     | 例外進出時的內容同步 |
-| 43:40 | TGran4_2  | RO     | -     | 第 2 階轉換的 4 KB 頁支援 |
-| 39:36 | TGran64_2 | RO     | -     | 第 2 階轉換的 64 KB 頁支援 |
-| 35:32 | TGran16_2 | RO     | -     | 第 2 階轉換的 16 KB 頁支援 |
-| 31:28 | TGran4    | RO     | -     | 4 KB 頁支援 |
-| 27:24 | TGran64   | RO     | -     | 64 KB 頁支援 |
+| 47:44 | ExS       | RO     | -     | 例外進出時的內容同步。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | TGran4_2  | RO     | -     | 第 2 階轉換的 4 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | TGran64_2 | RO     | -     | 第 2 階轉換的 64 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | TGran16_2 | RO     | -     | 第 2 階轉換的 16 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 31:28 | TGran4    | RO     | -     | 4 KB 頁支援。v8.0 基線欄位；注意官方編碼：0＝支援 4KB（讀 0 不是 RES0） |
+| 27:24 | TGran64   | RO     | -     | 64 KB 頁支援。v8.0 基線欄位；注意官方編碼：0＝支援 64KB（讀 0 不是 RES0） |
 | 23:20 | TGran16   | RO     | -     | 16 KB 頁支援 |
 | 19:16 | BigEndEL0 | RO     | -     | EL0 混合 endian 支援 |
 | 15:12 | SNSMem    | RO     | -     | 安全／非安全記憶體區分 |
@@ -751,11 +750,12 @@
 ## REVIDR_EL1
 - Offset: 0x0A0
 - Reset: -
-- Description: Revision ID Register — 實作特定小改版資訊，須與 MIDR_EL1 一併解讀（讀值＝MIDR 即未實作；MRS Rt,REVIDR_EL1；欄位意義需 A55 TRM，尚未取得）
+- Description: Revision ID Register — 實作特定小改版（errata 修補）資訊，須與 MIDR_EL1 一併解讀（MRS Rt,REVIDR_EL1）。2026-08 審查修正：舊版沿用了 ARMv7 REVIDR 的「未實作時讀值=MIDR」選配別名語意——AArch64 的 REVIDR_EL1 為必備暫存器，無此行為。審查轉錄：A55 r2p0 讀值 0x00000000（待 TRM 親驗）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:0 | REVIDR | RO | - | 實作定義 |
+| 63:32 | RES0 | RO | 0 | 保留 |
+| 31:0 | REVIDR | RO | - | 實作定義（審查轉錄：r2p0 讀 0） |
 
 ## AIDR_EL1
 - Offset: 0x0A8
@@ -774,22 +774,22 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | PFAR | RO | - | 實體錯誤位址擴充 |
-| 59:56 | DF2 | RO | - | 二次錯誤注入 |
-| 55:52 | MTEX | RO | - | MTE 擴充 |
-| 51:48 | THE | RO | - | 轉譯強化 |
-| 47:44 | GCS | RO | - | Guarded Control Stack |
-| 43:40 | MTE_frac | RO | - | MTE 次版本 |
-| 39:36 | NMI | RO | - | 非遮罩中斷支援 |
-| 35:32 | CSV2_frac | RO | - | CSV2 次版本 |
-| 31:28 | RNDR_trap | RO | - | 亂數 trap |
-| 27:24 | SME | RO | - | SME 支援 |
+| 63:60 | PFAR | RO | - | 實體錯誤位址擴充。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | DF2 | RO | - | 二次錯誤注入。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | MTEX | RO | - | MTE 擴充。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | THE | RO | - | 轉譯強化。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 47:44 | GCS | RO | - | Guarded Control Stack。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | MTE_frac | RO | - | MTE 次版本。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | NMI | RO | - | 非遮罩中斷支援。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | CSV2_frac | RO | - | CSV2 次版本。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 31:28 | RNDR_trap | RO | - | 亂數 trap。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 27:24 | SME | RO | - | SME 支援。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | RES0 | RO | - | 保留 |
-| 19:16 | MPAM_frac | RO | - | MPAM 次版本 |
-| 15:12 | RAS_frac | RO | - | RAS 次版本 |
-| 11:8 | MTE | RO | - | 記憶體標籤擴充 |
+| 19:16 | MPAM_frac | RO | - | MPAM 次版本。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 15:12 | RAS_frac | RO | - | RAS 次版本。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 11:8 | MTE | RO | - | 記憶體標籤擴充。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 7:4 | SSBS | RO | - | 推測性 Store Bypass Safe |
-| 3:0 | BT | RO | - | 分支目標識別（BTI） |
+| 3:0 | BT | RO | - | 分支目標識別（BTI）。本核心（Armv8.2）讀 0（較新架構才定義） |
 
 ## ID_AA64DFR0_EL1
 - Offset: 0x0B8
@@ -799,18 +799,18 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | HPMN0 | RO | - | HPMN 可為 0 |
-| 59:56 | ExtTrcBuff | RO | - | 外部 trace buffer |
-| 55:52 | BRBE | RO | - | Branch Record Buffer |
-| 51:48 | MTPMU | RO | - | 多執行緒 PMU |
-| 47:44 | TraceBuffer | RO | - | trace buffer 擴充 |
-| 43:40 | TraceFilt | RO | - | trace 過濾 |
+| 63:60 | HPMN0 | RO | - | HPMN 可為 0。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | ExtTrcBuff | RO | - | 外部 trace buffer。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | BRBE | RO | - | Branch Record Buffer。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | MTPMU | RO | - | 多執行緒 PMU。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 47:44 | TraceBuffer | RO | - | trace buffer 擴充。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | TraceFilt | RO | - | trace 過濾。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 39:36 | DoubleLock | RO | - | OS Double Lock |
 | 35:32 | PMSVer | RO | - | 統計剖析（SPE）版本 |
 | 31:28 | CTX_CMPs | RO | - | context 比對中斷點數 − 1 |
-| 27:24 | SEBEP | RO | - | 同步例外剖析 |
+| 27:24 | SEBEP | RO | - | 同步例外剖析。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | WRPs | RO | - | 監看點數 − 1 |
-| 19:16 | PMSS | RO | - | PMU 快照 |
+| 19:16 | PMSS | RO | - | PMU 快照。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 15:12 | BRPs | RO | - | 中斷點數 − 1 |
 | 11:8 | PMUVer | RO | - | PMU 架構版本 |
 | 7:4 | TraceVer | RO | - | trace 支援 |
@@ -824,16 +824,16 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | RNDR | RO | - | 亂數指令 |
-| 59:56 | TLB | RO | - | TLBI 範圍操作 |
-| 55:52 | TS | RO | - | 旗標操作指令 |
-| 51:48 | FHM | RO | - | FMLAL/FMLSL |
+| 63:60 | RNDR | RO | - | 亂數指令。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | TLB | RO | - | TLBI 範圍操作。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | TS | RO | - | 旗標操作指令。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | FHM | RO | - | FMLAL/FMLSL。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 47:44 | DP | RO | - | 點積指令 |
-| 43:40 | SM4 | RO | - | SM4 指令 |
-| 39:36 | SM3 | RO | - | SM3 指令 |
-| 35:32 | SHA3 | RO | - | SHA3 指令 |
+| 43:40 | SM4 | RO | - | SM4 指令。本核心依密碼學擴充組態，讀值自證 |
+| 39:36 | SM3 | RO | - | SM3 指令。本核心依密碼學擴充組態，讀值自證 |
+| 35:32 | SHA3 | RO | - | SHA3 指令。本核心依密碼學擴充組態，讀值自證 |
 | 31:28 | RDM | RO | - | SQRDMLAH/SQRDMLSH |
-| 27:24 | TME | RO | - | 交易記憶體 |
+| 27:24 | TME | RO | - | 交易記憶體。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | Atomic | RO | - | LSE 原子指令 |
 | 19:16 | CRC32 | RO | - | CRC32 指令 |
 | 15:12 | SHA2 | RO | - | SHA2 指令 |
@@ -849,21 +849,21 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | LS64 | RO | - | 64-byte 載入儲存 |
-| 59:56 | XS | RO | - | XS 屬性 |
-| 55:52 | I8MM | RO | - | Int8 矩陣乘 |
-| 51:48 | DGH | RO | - | Data Gathering Hint |
-| 47:44 | BF16 | RO | - | BFloat16 |
-| 43:40 | SPECRES | RO | - | 預測失效指令 |
-| 39:36 | SB | RO | - | Speculation Barrier |
-| 35:32 | FRINTTS | RO | - | FRINT32/64 |
-| 31:28 | GPI | RO | - | 實作定義 generic PAC |
-| 27:24 | GPA | RO | - | QARMA generic PAC |
+| 63:60 | LS64 | RO | - | 64-byte 載入儲存。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | XS | RO | - | XS 屬性。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | I8MM | RO | - | Int8 矩陣乘。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | DGH | RO | - | Data Gathering Hint。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 47:44 | BF16 | RO | - | BFloat16。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | SPECRES | RO | - | 預測失效指令。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | SB | RO | - | Speculation Barrier。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | FRINTTS | RO | - | FRINT32/64。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 31:28 | GPI | RO | - | 實作定義 generic PAC。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 27:24 | GPA | RO | - | QARMA generic PAC。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | LRCPC | RO | - | LDAPR 系列 |
-| 19:16 | FCMA | RO | - | 複數運算 |
-| 15:12 | JSCVT | RO | - | JavaScript 轉換 |
-| 11:8 | API | RO | - | 實作定義位址 PAC |
-| 7:4 | APA | RO | - | QARMA 位址 PAC |
+| 19:16 | FCMA | RO | - | 複數運算。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 15:12 | JSCVT | RO | - | JavaScript 轉換。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 11:8 | API | RO | - | 實作定義位址 PAC。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 7:4 | APA | RO | - | QARMA 位址 PAC。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 3:0 | DPB | RO | - | DC CVAP（持久性清理） |
 
 ## ID_AA64MMFR1_EL1
@@ -874,16 +874,16 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | ECBHB | RO | - | 分支歷史清除行為 |
-| 59:56 | CMOW | RO | - | cache 維護權限檢查 |
-| 55:52 | TIDCP1 | RO | - | 實作定義暫存器 trap |
-| 51:48 | nTLBPA | RO | - | TLB 中介位址快取資訊 |
-| 47:44 | AFP | RO | - | 替代浮點行為 |
-| 43:40 | HCX | RO | - | HCRX_EL2 支援 |
-| 39:36 | ETS | RO | - | 增強轉譯同步 |
-| 35:32 | TWED | RO | - | WFE trap 延遲 |
+| 63:60 | ECBHB | RO | - | 分支歷史清除行為。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | CMOW | RO | - | cache 維護權限檢查。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | TIDCP1 | RO | - | 實作定義暫存器 trap。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | nTLBPA | RO | - | TLB 中介位址快取資訊。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 47:44 | AFP | RO | - | 替代浮點行為。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 43:40 | HCX | RO | - | HCRX_EL2 支援。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | ETS | RO | - | 增強轉譯同步。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | TWED | RO | - | WFE trap 延遲。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 31:28 | XNX | RO | - | EL0/EL1 XN 區分 |
-| 27:24 | SpecSEI | RO | - | 推測性 SError |
+| 27:24 | SpecSEI | RO | - | 推測性 SError。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | PAN | RO | - | 特權存取禁止（PAN） |
 | 19:16 | LO | RO | - | LORegions |
 | 15:12 | HPDS | RO | - | 階層式權限停用 |
@@ -899,16 +899,16 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:60 | E0PD | RO | - | EL0 轉譯早期停用 |
-| 59:56 | EVT | RO | - | 增強虛擬化 trap |
-| 55:52 | BBM | RO | - | break-before-make 等級 |
-| 51:48 | TTL | RO | - | TTL 提示 |
+| 63:60 | E0PD | RO | - | EL0 轉譯早期停用。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 59:56 | EVT | RO | - | 增強虛擬化 trap。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 55:52 | BBM | RO | - | break-before-make 等級。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 51:48 | TTL | RO | - | TTL 提示。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 47:44 | RES0 | RO | - | 保留 |
-| 43:40 | FWB | RO | - | stage2 強制 write-back |
-| 39:36 | IDS | RO | - | ID 空間 trap 回報 |
-| 35:32 | AT | RO | - | 非對齊單拷貝原子性 |
-| 31:28 | ST | RO | - | 小型轉譯表 |
-| 27:24 | NV | RO | - | 巢狀虛擬化 |
+| 43:40 | FWB | RO | - | stage2 強制 write-back。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 39:36 | IDS | RO | - | ID 空間 trap 回報。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 35:32 | AT | RO | - | 非對齊單拷貝原子性。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 31:28 | ST | RO | - | 小型轉譯表。本核心（Armv8.2）讀 0（較新架構才定義） |
+| 27:24 | NV | RO | - | 巢狀虛擬化。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 23:20 | CCIDX | RO | - | CCSIDR 大索引格式（本核心讀 0：CCSIDR_EL1 用 32-bit 佈局） |
 | 19:16 | VARange | RO | - | 虛擬位址範圍 |
 | 15:12 | IESB | RO | - | 隱含 error barrier |
@@ -919,14 +919,19 @@
 ## CCSIDR_EL1
 - Offset: 0x0E0
 - Reset: -
-- Description: Cache Size ID Register — 由 CSSELR_EL1 選定之快取的參數。本核心 ID_AA64MMFR2.CCIDX=0，用 32-bit 佈局（NumSets[27:13]/Assoc[12:3]/LineSize[2:0]，同 ARMv8 無 CCIDX 定義；機讀模型為 v9.4 CCIDX 佈局，兩者不同，故本顆不標對照，佈局請以 DDI 0487 無 CCIDX 版為準；MRS Rt,CCSIDR_EL1）
+- Verified: ARM DDI 0406C.d §B6.1「CCSIDR, Cache Size ID Registers」（v7/v8 無 CCIDX 之同佈局，含 WT/WB/RA/WA[31:28]，親驗）＋交叉審查確認 A55 TRM §3.2.23（Figure 3-99）同佈局（原文待親驗）
+- Description: Cache Size ID Register — 由 CSSELR_EL1 選定之快取的參數。本核心 ID_AA64MMFR2.CCIDX=0，用 32-bit 佈局（2026-08 審查修正：補上舊版遺漏的 WT/WB/RA/WA 四個能力位；MRS Rt,CCSIDR_EL1）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:28 | RES0 | RO | - | 保留 |
+| 63:32 | RES0 | RO | - | 保留 |
+| 31 | WT | RO | - | 支援 write-through |
+| 30 | WB | RO | - | 支援 write-back |
+| 29 | RA | RO | - | 支援 read-allocation |
+| 28 | WA | RO | - | 支援 write-allocation |
 | 27:13 | NumSets | RO | - | set 數 − 1 |
 | 12:3 | Associativity | RO | - | 關聯度 − 1 |
-| 2:0 | LineSize | RO | - | log2(每 line bytes) − 4（0 = 16 bytes） |
+| 2:0 | LineSize | RO | - | log2(每 line words) − 2（0 = 4 words = 16 bytes） |
 
 ## CSSELR_EL1
 - Offset: 0x0E8
@@ -937,7 +942,7 @@
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 63:5 | RES0 | RO | - | 保留 |
-| 4 | TnD | RW | - | Tag／Data 選擇（無 MTE 時 RES0） |
+| 4 | RES0 | RO | 0 | 保留（TnD 需 FEAT_MTE；A55 無 MTE，恆為 0。2026-08 審查修正：舊版誤列為可寫欄位） |
 | 3:1 | Level | RW | - | 快取層級（0b000 = L1） |
 | 0 | InD | RW | - | 指令／資料選擇 |
 
@@ -949,21 +954,23 @@
 - Offset: 0x0F0
 - Reset: -
 - Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR0_EL1（無切分的整顆暫存器）
-- Description: Auxiliary Fault Status Register 0 — 實作定義的故障補充資訊（A55 未使用，讀 0；MRS Rt,AFSR0_EL1）
+- Description: Auxiliary Fault Status Register 0 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW，與說明矛盾）；MRS Rt,AFSR0_EL1
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:0 | IMPDEF | RW | - | 實作定義（A55 為 RES0） |
+| 63:32 | RES0 | RO | 0 | 保留 |
+| 31:0 | RES0 | RO | 0 | A55：RES0（審查確認 TRM §3.2.8／§3.2.11） |
 
 ## AFSR1_EL1
 - Offset: 0x0F8
 - Reset: -
 - Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR1_EL1（無切分的整顆暫存器）
-- Description: Auxiliary Fault Status Register 1 — 實作定義的故障補充資訊（A55 未使用，讀 0；MRS Rt,AFSR1_EL1）
+- Description: Auxiliary Fault Status Register 1 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW，與說明矛盾）；MRS Rt,AFSR1_EL1
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:0 | IMPDEF | RW | - | 實作定義（A55 為 RES0） |
+| 63:32 | RES0 | RO | 0 | 保留 |
+| 31:0 | RES0 | RO | 0 | A55：RES0（審查確認 TRM §3.2.8／§3.2.11） |
 
 ## CONTEXTIDR_EL1
 - Offset: 0x100
@@ -1017,8 +1024,8 @@
 | 63:18 | RES0 | RO | - | 保留 |
 | 17 | EVNTIS | RW | - | 事件流位元選擇放大（v8.6；本核心讀 0） |
 | 16:10 | RES0 | RO | - | 保留 |
-| 9 | EL0PTEN | RW | - | EL0 可存取實體計時器（CNTP_*） |
-| 8 | EL0VTEN | RW | - | EL0 可存取虛擬計時器（CNTV_*） |
+| 9 | EL0PTEN | RW | - | EL0 可存取實體計時器（CNTP_*）。v8.0 基線欄位（ARMv7 CNTKCTL.PL0PTEN 之對應；非 FEAT_ECV——三輪審查已確認） |
+| 8 | EL0VTEN | RW | - | EL0 可存取虛擬計時器（CNTV_*）。v8.0 基線欄位（ARMv7 CNTKCTL.PL0VTEN 之對應） |
 | 7:4 | EVNTI | RW | - | 事件流觸發位元選擇 |
 | 3 | EVNTDIR | RW | - | 事件流觸發邊緣 |
 | 2 | EVNTEN | RW | - | 事件流致能 |
@@ -1259,40 +1266,53 @@
 - Offset: 0x1A0
 - Reset: -
 - Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C1_4 與 L1WSCTL 位置經 ARM 官方原始碼核對
-- Description: CPU Extended Control Register — 核心擴充控制（實作定義；完整位元表需 A55 TRM，本表僅列 ARM 官方開源碼證實的欄位；MRS S3_0_C15_C1_4）
+- Description: CPU Extended Control Register — 核心擴充控制（實作定義；MRS S3_0_C15_C1_4）。L1WSCTL 位置經 ARM 官方 TF-A 原始碼證實；其餘欄位依 2026-08 交叉審查轉錄自 A55 TRM §3.2.30（Figure 3-106），尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:27 | IMPDEF_H | RW | - | 實作定義（切分待 A55 TRM 對照） |
-| 26:25 | L1WSCTL | RW | - | L1 write streaming 門檻控制（TF-A errata 用） |
-| 24:0 | IMPDEF_L | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 63:40 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 39:38 | ATOM | RW | - | 原子指令處理行為控制（審查轉錄） |
+| 37 | L2FLUSH | RW | - | L2 flush 控制（審查轉錄） |
+| 36:31 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 30:29 | L3WSCTL | RW | - | L3 write streaming 門檻（審查轉錄） |
+| 28:27 | L2WSCTL | RW | - | L2 write streaming 門檻（審查轉錄） |
+| 26:25 | L1WSCTL | RW | - | L1 write streaming 門檻（ARM 官方 TF-A cortex_a55.h 證實位置） |
+| 24:16 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 15:13 | L1PCTL | RW | - | L1 資料預取控制（審查轉錄） |
+| 12:10 | L3PCTL | RW | - | L3 資料預取控制（審查轉錄） |
+| 9:1 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 0 | EXTLLC | RW | - | 外部 last-level cache 存在指示（審查轉錄） |
 
 ## CPUACTLR_EL1
 - Offset: 0x1A8
 - Reset: -
 - Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C1_0 與三個 errata 位的位置經 ARM 官方原始碼核對
-- Description: CPU Auxiliary Control Register — 核心輔助控制（實作定義；各 errata 開關；完整位元表需 A55 TRM；MRS S3_0_C15_C1_0）
+- Description: CPU Auxiliary Control Register（MRS S3_0_C15_C1_0）。⚠ A55 TRM（§3.2.28，審查確認）將整顆標為「Reserved for Arm internal use」——除非 Arm 指示，**不得修改**；下列三個具名位僅為 ARM 官方 TF-A errata workaround 所操作位置的證據（非公開穩定介面），其餘位元一律視為內部保留
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:50 | IMPDEF_H | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 63:50 | INTERNAL | RO | - | Arm 內部保留（不得修改） |
 | 49 | DIS_L1_PGWLK | RW | - | 停用 L1 pagewalk 快取（TF-A errata 1221012） |
-| 48:32 | IMPDEF_M2 | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 48:32 | INTERNAL2 | RO | - | Arm 內部保留（不得修改） |
 | 31 | DIS_DUAL_ISSUE | RW | - | 停用雙發射（TF-A errata 778703） |
-| 30:25 | IMPDEF_M1 | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 30:25 | INTERNAL1 | RO | - | Arm 內部保留（不得修改） |
 | 24 | DIS_WR_STREAM | RW | - | 停用 write streaming（TF-A errata 778703） |
-| 23:0 | IMPDEF_L | RW | - | 實作定義（切分待 A55 TRM 對照） |
+| 23:0 | INTERNAL0 | RO | - | Arm 內部保留（不得修改） |
 
 ## CPUPWRCTLR_EL1
 - Offset: 0x1B0
 - Reset: -
 - Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C2_7 與 CORE_PWRDN_EN 位置經 ARM 官方原始碼核對
-- Description: CPU Power Control Register — 核心電源控制（實作定義；MRS S3_0_C15_C2_7）
+- Description: CPU Power Control Register — 核心電源控制（實作定義；MRS S3_0_C15_C2_7）。CORE_PWRDN_EN 位置經 ARM 官方 TF-A 證實；retention 欄位依 2026-08 交叉審查轉錄自 A55 TRM §3.2.35（Figure 3-111），尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:1 | IMPDEF | RW | - | 實作定義（切分待 A55 TRM 對照） |
-| 0 | CORE_PWRDN_EN | RW | - | WFI 時允許核心斷電 |
+| 63:13 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 12:10 | SIMD_RET_CTRL | RW | - | Advanced SIMD/FP retention 進入延遲（審查轉錄） |
+| 9:7 | WFE_RET_CTRL | RW | - | WFE retention 進入延遲（審查轉錄） |
+| 6:4 | WFI_RET_CTRL | RW | - | WFI retention 進入延遲（審查轉錄） |
+| 3:1 | RES0 | RO | 0 | 保留（審查轉錄） |
+| 0 | CORE_PWRDN_EN | RW | 0 | WFI 時允許核心斷電（ARM 官方 TF-A 證實位置） |
 
 ### Enum: CORE_PWRDN_EN
 - 0: WFI 不斷電

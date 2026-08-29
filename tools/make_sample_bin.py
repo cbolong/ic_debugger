@@ -82,6 +82,8 @@ WORDS = [
     ("FPSID",       0x41023154),  # ARM、VFPv3 null subarch
     ("FPSCR",       0x00000010),  # IXC=1（曾發生 inexact）
     ("FPEXC",       0x40000000),  # EN=1
+    ("MVFR0",       0x10110221),  # 單/倍精度、VDIV/VSQRT（審查轉錄的 R5F 典型值，僅示範）
+    ("MVFR1",       0x00000011),  # 支援 NaN 傳遞與完整 denorm（示範值）
 ]
 
 
