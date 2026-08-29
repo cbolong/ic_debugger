@@ -264,7 +264,7 @@ def test_spec_detail_builtin_raw_matches_file():
     assert detail["summary"]["id"] == "cortex_r5"
     assert detail["raw"] == path.read_text(encoding="utf-8-sig")  # 原文一字不差
     assert detail["raw_error"] is None
-    assert len(detail["registers"]) == detail["summary"]["register_count"] == 60
+    assert len(detail["registers"]) == detail["summary"]["register_count"] == 62
     # 全文模式沒有 bin：不得出現任何值
     assert all(r["value_hex"] is None for r in detail["registers"])
 

@@ -202,7 +202,6 @@ ARM_OFFICIAL_FIELDS = {
         "I": (12, 12),
         "IESB": (21, 21),
         "ITD": (7, 7),
-        "LSMAOE": (29, 29),
         "M": (0, 0),
         "SA": (3, 3),
         "SA0": (4, 4),
@@ -212,7 +211,6 @@ ARM_OFFICIAL_FIELDS = {
         "UCT": (15, 15),
         "UMA": (9, 9),
         "WXN": (19, 19),
-        "nTLSMD": (28, 28),
         "nTWE": (18, 18),
         "nTWI": (16, 16),
     },
@@ -342,7 +340,7 @@ def test_a55_field_positions_match_arm_machine_readable_spec():
         for field, pos in want.items():
             assert got.get(field) == pos, f"{name}.{field} 應在 [{pos[0]}:{pos[1]}]，實際 {got.get(field)}"
             checked += 1
-    assert checked == 123, f"對照過的欄位數變了（{checked}）——是刻意增刪就同步改這個數字"
+    assert checked == 121, f"對照過的欄位數變了（{checked}）——是刻意增刪就同步改這個數字"  # 2026-08-29：SCTLR[29:28] 依審查改 RES1，自 lock 表移除
 
 
 def test_a55_verified_registers_cite_the_machine_readable_spec():
@@ -354,11 +352,12 @@ def test_a55_verified_registers_cite_the_machine_readable_spec():
     spec = _spec("arm/cortex_a55.md")
     for r in spec.registers:
         if r.verified:
-            assert ("sail-arm" in r.verified) or ("arm-trusted-firmware" in r.verified), r.name
+            assert ("sail-arm" in r.verified) or ("arm-trusted-firmware" in r.verified) \
+                or ("DDI 0406C.d" in r.verified), r.name  # CCSIDR：v7/v8 同佈局親驗
     unverified = {r.name for r in spec.registers if not r.verified}
     assert unverified == {"CurrentEL", "DAIF", "VBAR_EL1", "FAR_EL1", "ELR_EL1",
                           "CNTFRQ_EL0", "CNTP_TVAL_EL0", "CNTV_TVAL_EL0",
-                          "CCSIDR_EL1", "REVIDR_EL1", "AIDR_EL1"}
+                          "REVIDR_EL1", "AIDR_EL1"}  # CCSIDR 於 2026-08-29 取得 0406C 佈局親驗
     tfa = {r.name for r in spec.registers if r.verified and "arm-trusted-firmware" in r.verified}
     assert tfa == {"CPUECTLR_EL1", "CPUACTLR_EL1", "CPUPWRCTLR_EL1"}
 
@@ -428,7 +427,7 @@ def test_r5_covers_full_official_pmsa_readable_list():
     ]
     missing = [n for n in official_readable if n not in names]
     assert not missing, f"官方 Table B5-11 有、spec 沒有：{missing}"
-    assert len(spec.registers) == 60  # 官方清單 + ATCMRR/BTCMRR + CPSR + FPU 3 顆
+    assert len(spec.registers) == 62  # 官方清單 + ATCMRR/BTCMRR + CPSR + FPU 5 顆（FPSID/FPSCR/FPEXC/MVFR0/MVFR1）
 
 
 def test_r5_id_registers_verified_against_ddi0406():
@@ -487,3 +486,36 @@ def test_a55_extended_registers_present():
               "CPUECTLR_EL1", "CPUACTLR_EL1", "CPUPWRCTLR_EL1"):
         assert n in names, n
     assert len(names) == 55
+
+
+def test_andes_mcounterovf_clear_semantics_differ_by_core():
+    """2026-08-29 三輪審查決議：官方 QEMU（pinned commit 3290262）的
+    write_mcounterovf 明定 N25=寫 1 清除（W1C）、其他核心（含 N45）=寫 0 清除
+    （W0C）。兩檔複製時漏掉這個差異曾是實際錯誤——鎖住它。"""
+    n25 = _regs(_spec("andes/n25.md"))["mcounterovf"]
+    n45 = _regs(_spec("andes/n45.md"))["mcounterovf"]
+    assert "寫 1 清除" in n25.desc and "W1C" in n25.desc
+    assert "寫 0 清除" in n45.desc and "W0C" in n45.desc
+    assert "3290262" in n25.desc and "3290262" in n45.desc
+
+
+def test_r5_tcm_region_encodings_swapped_fix_locked():
+    """2026-08-29 審查修正鎖定：ATCM=c9,c1,1、BTCM=c9,c1,0（Xilinx 官方 BSP
+    xreg_cortexr5.h 與 DDI 0460D Table 4-43/4-44 一致）——舊版寫反過，不准改回。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    assert "c9,c1,1" in regs["ATCMRR"].desc and "c9,c1,0" not in regs["ATCMRR"].desc.split("舊版誤植")[0].split("；MRC")[0][-30:]
+    assert "MRC p15,0,Rt,c9,c1,1" in regs["ATCMRR"].desc
+    assert "MRC p15,0,Rt,c9,c1,0" in regs["BTCMRR"].desc
+    # Size 欄位補上
+    assert any(f.name == "Size" for f in regs["ATCMRR"].fields)
+    assert any(f.name == "Size" for f in regs["BTCMRR"].fields)
+
+
+def test_a55_sctlr_2928_res1_locked():
+    """2026-08-29 審查修正鎖定：A55 無 FEAT_LSMAOC → SCTLR_EL1[29:28] 為 RES1
+    （Linux kernel SCTLR_EL1_RES1 遮罩＋審查確認 TRM Figure 3-162）。"""
+    sctlr = _regs(_spec("arm/cortex_a55.md"))["SCTLR_EL1"]
+    f = {x.name: (x.msb, x.lsb, x.reset) for x in sctlr.fields}
+    assert "LSMAOE" not in f and "nTLSMD" not in f
+    row = next((x for x in sctlr.fields if x.msb == 29 and x.lsb == 28), None)
+    assert row is not None and row.name == "RES1" and row.reset == 0b11

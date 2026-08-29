@@ -2,7 +2,7 @@
 # Version: r1p2 · ARMv7-R
 # Width: 32
 # Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄）／ARM DDI 0460D（Cortex-R5 TRM，僅 TCMTR）
-# Status: ⚠ 60 顆中 55 顆的位元定義已逐欄對照官方 ARMv7-A/R 架構手冊（ARM DDI 0406C.d）§B6「System Control Registers in a PMSA implementation」等章節、1 顆（TCMTR）已對照 Cortex-R5 TRM（DDI 0460D），出處見各暫存器的 Verified。暫存器清單依官方 Table B5-11「PMSA CP15 暫存器總表」收錄全部可讀出的架構暫存器，此清單層級為【完整】。仍未對照 Cortex-R5 TRM 的部分：ACTLR／ADFSR／AIFSR／AIDR 的逐位意義、ATCMRR／BTCMRR（實作層）、各 ID 暫存器的實際值、Reset 值、c15 實作定義暫存器群。落差見檔尾註解
+# Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
 # Description: ARMv7-R（PMSAv7）架構定義的全部可讀 CP15 系統控制暫存器＋CPSR＋FPU（R5F），依官方 Table B5-11 順序排列
 
 <!--
@@ -704,7 +704,7 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:0 | AIDR | RO | - | 實作定義（官方：bit assignments are IMPLEMENTATION DEFINED） |
+| 31:0 | AIDR | RO | - | 實作定義。審查轉錄：Cortex-R5 r1p2 讀值為 0x00000000（Table 4-2，待親驗） |
 
 ## CSSELR
 - Offset: 0x05C
@@ -715,7 +715,7 @@
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:4 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 3:1 | Level | RW | - | 快取層級（0b000 = L1 … 0b110 = L7；選到未實作層級為 UNPREDICTABLE） |
+| 3:1 | Level | RW | - | 快取層級。架構允許 0b000=L1…0b110=L7；Cortex-R5 僅有 L1（審查轉錄：本產品此欄唯讀、寫入忽略，待 TRM 親驗） |
 | 0 | InD | RW | - | 指令／資料選擇 |
 
 ### Enum: InD
@@ -739,17 +739,17 @@
 | 24 | VE | RW | 0 | 中斷向量化（使用實作定義的 FIQ/IRQ 向量） |
 | 23 | RES1 | RO | 1 | 保留（官方標 RAO/SBOP） |
 | 22 | U | RO | 1 | 對齊模型（ARMv7 固定為 1） |
-| 21 | FI | RO | - | 低中斷延遲組態（停用部分效能特性） |
+| 21 | FI | RO | - | 低中斷延遲組態。審查轉錄：Cortex-R5 此位固定為 1（SBO，恆為低延遲組態），待 TRM 親驗 |
 | 20 | RES0 | RO | 0 | 保留（官方標 RAZ/SBZP） |
 | 19 | DZ | RW | 0 | 除以零產生 Undefined 例外 |
 | 18 | RES1 | RO | 1 | 保留（官方標 RAO/SBOP） |
 | 17 | BR | RW | - | MPU 背景區域（依 CFGBR 接腳） |
 | 16 | RES1 | RO | 1 | 保留（官方標 RAO/SBOP） |
 | 15 | RES0 | RO | 0 | 保留（官方標 RAZ/SBZP） |
-| 14 | RR | RW | 0 | cache 取代策略選擇（不支援替代策略時 RAZ/WI） |
+| 14 | RR | RW | 0 | cache 取代策略選擇。審查轉錄：Cortex-R5 無論此位為何皆使用 random replacement（此位無效），待 TRM 親驗 |
 | 13 | V | RW | - | 例外向量基底位址選擇（依 VINITHI 接腳） |
 | 12 | I | RW | 0 | I-cache 全域致能 |
-| 11 | Z | RW | - | 分支預測致能（不支援時 RAZ/WI） |
+| 11 | Z | RW | - | 分支預測致能。審查轉錄：Cortex-R5 此位固定為 1（SBO），預測策略改由 ACTLR 控制，待 TRM 親驗 |
 | 10 | SW | RW | 0 | SWP/SWPB 指令致能 |
 | 9:8 | RES0 | RO | 0 | 保留（官方標 RAZ/SBZP） |
 | 7 | B | RO | 0 | ARMv7 固定為 0（endianness 模型改用 E bit） |
@@ -822,12 +822,45 @@
 ## ACTLR
 - Offset: 0x064
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「ACTLR, IMPLEMENTATION DEFINED Auxiliary Control Register, PMSA」— 位元切分依官方逐欄核對（內容本身為實作定義，逐位定義在 Cortex-R5 TRM，尚未取得）
-- Description: Auxiliary Control Register — 實作定義的組態與控制（ARMv7 規定必須實作且 PL1 可讀寫；R5 的逐位意義見 DDI 0460 §4.3.10，待補；MRC p15,0,Rt,c1,c0,1）
+- Description: Auxiliary Control Register — Cortex-R5 的核心行為控制（dual issue／分支預測／cache・TCM ECC／AXI slave 等；MRC/MCR p15,0,Rt,c1,c0,1）。整表依 2026-08 交叉審查轉錄自 DDI 0460D §4.3.17 Table 4-25，尚未親驗原文——以此為據修改硬體設定前請先核對 TRM
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:0 | IMPDEF | RW | - | 實作定義（Cortex-R5 的位元配置需對照 DDI 0460 補上） |
+| 31 | DICDI | RW | - | 停用 dual issue（審查轉錄） |
+| 30 | DIB2DI | RW | - | 停用 dual issue 分組 B2（審查轉錄） |
+| 29 | DIB1DI | RW | - | 停用 dual issue 分組 B1（審查轉錄） |
+| 28 | DIADI | RW | - | 停用 dual issue 分組 A（審查轉錄） |
+| 27 | B1TCMPCEN | RW | - | B1TCM 同位／ECC 致能（審查轉錄） |
+| 26 | B0TCMPCEN | RW | - | B0TCM 同位／ECC 致能（審查轉錄） |
+| 25 | ATCMPCEN | RW | - | ATCM 同位／ECC 致能（審查轉錄） |
+| 24 | AXISCEN | RW | - | AXI slave cache RAM 存取致能（審查轉錄） |
+| 23 | AXISCUEN | RW | - | AXI slave 非特權 cache RAM 存取致能（審查轉錄） |
+| 22 | DILSM | RW | - | 停用 low interrupt latency 於 load/store multiple（審查轉錄） |
+| 21 | DEOLP | RW | - | 停用 end-of-loop 預測（審查轉錄） |
+| 20 | DBHE | RW | - | 停用分支歷史（審查轉錄） |
+| 19 | FRCDIS | RW | - | Fault 路徑組合邏輯停用（審查轉錄） |
+| 18 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 17 | RSDIS | RW | - | 停用 return stack（審查轉錄） |
+| 16:15 | BP | RW | - | 分支預測策略（審查轉錄） |
+| 14 | DBWR | RW | - | 停用 write burst（審查轉錄） |
+| 13 | DLFO | RW | - | 停用 linefill 最佳化（審查轉錄） |
+| 12 | ERPEG | RW | - | 隨機同位錯誤產生致能（驗證用；審查轉錄） |
+| 11 | DNCH | RW | - | 停用 non-cacheable streaming 增強（審查轉錄） |
+| 10 | FORA | RW | - | 強制 outer read allocate（審查轉錄） |
+| 9 | FWT | RW | - | 強制 write-through（審查轉錄） |
+| 8 | FDSnS | RW | - | 強制 D-cache non-shareable 時 write-through（審查轉錄） |
+| 7 | sMOV | RW | - | 序列化 MOV 至 coprocessor（審查轉錄） |
+| 6 | DILS | RW | - | 停用 low interrupt latency 於所有 load/store（審查轉錄） |
+| 5:3 | CEC | RW | - | cache 錯誤控制（ECC／同位組態；審查轉錄） |
+| 2 | B1TCMECEN | RW | - | B1TCM 外部錯誤致能（審查轉錄） |
+| 1 | B0TCMECEN | RW | - | B0TCM 外部錯誤致能（審查轉錄） |
+| 0 | ATCMECEN | RW | - | ATCM 外部錯誤致能（審查轉錄） |
+
+### Enum: BP
+- 0b00: 正常運作（動態分支預測）
+- 0b01: 恆預測為 taken
+- 0b10: 恆預測為 not taken
+- 0b11: 保留
 
 ## CPACR
 - Offset: 0x068
@@ -837,8 +870,8 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31 | ASEDIS | RO | - | 停用 Advanced SIMD（R profile 未實作 SIMD 時 RAZ/WI） |
-| 30 | D32DIS | RO | - | 停用 D16-D31（未實作時 RAZ/WI） |
+| 31 | ASEDIS | RO | - | 審查轉錄（R5 產品語意）：0=未配置 FPU；1=已配置 FPU 但無 Advanced SIMD（R5F 恆讀 1）。待 TRM Table 4-27 親驗 |
+| 30 | D32DIS | RO | - | 審查轉錄（R5 產品語意）：0=未配置 FPU；1=已配置 FPU 但 D16–D31 不可用（R5F 為 VFPv3-D16，恆讀 1）。待 TRM 親驗 |
 | 29:26 | RES0 | RO | 0 | 保留（官方標 UNK/SBZP） |
 | 25:24 | RES0 | RO | 0 | cp12–cp13 存取權（ARMv7 未定義用途，官方建議 RAZ/WI） |
 | 23:22 | cp11 | RW | - | cp11（FPU 資料傳輸）存取權限（重置值實作定義） |
@@ -861,16 +894,16 @@
 - Offset: 0x06C
 - Reset: -
 - Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「DFSR, Data Fault Status Register, PMSA」— 位元切分依官方逐欄核對＋Table B5-8（PMSAv7 DFSR encodings）
-- Description: Data Fault Status Register — 最近一次資料中止的狀態（與 DFAR 搭配；MRC p15,0,Rt,c5,c0,0）
+- Description: Data Fault Status Register — 最近一次資料中止的狀態（與 DFAR 搭配）。官方屬性為 32-bit RW 暫存器（軟體可寫回，供 context save/restore；2026-08 審查修正：舊版誤標 RO）；MRC/MCR p15,0,Rt,c5,c0,0
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:13 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 12 | ExT | RO | - | 外部中止分類（非外部中止時讀 0） |
-| 11 | WnR | RO | - | 同步例外時：寫入或讀取造成 |
-| 10 | FS[4] | RO | - | 故障狀態最高位（與 FS[3:0] 併讀） |
+| 12 | ExT | RW | - | 外部中止分類（非外部中止時讀 0） |
+| 11 | WnR | RW | - | 同步例外時：寫入或讀取造成 |
+| 10 | FS[4] | RW | - | 故障狀態最高位（與 FS[3:0] 併讀） |
 | 9:4 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 3:0 | FS[3:0] | RO | - | 故障狀態（官方 Table B5-8，值 = FS[4]:FS[3:0]） |
+| 3:0 | FS[3:0] | RW | - | 故障狀態（官方 Table B5-8，值 = FS[4]:FS[3:0]） |
 
 ### Enum: WnR
 - 0: 由讀取指令造成
@@ -891,16 +924,16 @@
 - Offset: 0x070
 - Reset: -
 - Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「IFSR, Instruction Fault Status Register, PMSA」— 位元切分依官方逐欄核對＋Table B5-7（PMSAv7 IFSR encodings）
-- Description: Instruction Fault Status Register — 最近一次 Prefetch Abort 的狀態（與 IFAR 搭配；MRC p15,0,Rt,c5,c0,1）
+- Description: Instruction Fault Status Register — 最近一次 Prefetch Abort 的狀態（與 IFAR 搭配）。官方屬性為 32-bit RW 暫存器（2026-08 審查修正：舊版誤標 RO）；MRC/MCR p15,0,Rt,c5,c0,1
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:13 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 12 | ExT | RO | - | 外部中止分類（非外部中止時讀 0） |
+| 12 | ExT | RW | - | 外部中止分類（非外部中止時讀 0） |
 | 11 | RES0 | RO | - | 保留 |
-| 10 | FS[4] | RO | - | 故障狀態最高位（與 FS[3:0] 併讀） |
+| 10 | FS[4] | RW | - | 故障狀態最高位（與 FS[3:0] 併讀） |
 | 9:4 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 3:0 | FS[3:0] | RO | - | 故障狀態（官方 Table B5-7，值 = FS[4]:FS[3:0]） |
+| 3:0 | FS[3:0] | RW | - | 故障狀態（官方 Table B5-7，值 = FS[4]:FS[3:0]） |
 
 ### Enum: FS[3:0]
 - 0b0000: FS[4]=0＝背景故障（未命中任何 MPU 區域，IFAR 有效）／FS[4]=1＝保留
@@ -915,22 +948,34 @@
 ## ADFSR
 - Offset: 0x074
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「ADFSR and AIFSR, Auxiliary Data and Instruction Fault Status Registers, PMSA」— 位元切分依官方逐欄核對
-- Description: Auxiliary Data Fault Status Register — 資料中止的實作定義補充資訊（R5 用於同位／ECC 錯誤定位，逐位定義需對照 DDI 0460；MRC p15,0,Rt,c5,c1,0）
+- Description: Auxiliary Data Fault Status Register — 資料側同位／ECC 錯誤的定位資訊（來源、cache way、index、可否恢復；MRC/MCR p15,0,Rt,c5,c1,0）。整表依 2026-08 交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:0 | IMPDEF | RW | - | 實作定義（官方僅架構出暫存器位置與存取性） |
+| 31:28 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 27:24 | CacheWay | RW | - | 發生錯誤的 cache way（審查轉錄） |
+| 23:22 | Side | RW | - | 錯誤來源側（cache／TCM／AXI 等分類與 SideExt 併讀；審查轉錄） |
+| 21 | Recoverable | RW | - | 錯誤可否恢復（審查轉錄） |
+| 20 | SideExt | RW | - | 錯誤來源側擴充位（審查轉錄） |
+| 19:14 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 13:5 | Index | RW | - | 發生錯誤的 index（審查轉錄） |
+| 4:0 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
 
 ## AIFSR
 - Offset: 0x078
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「ADFSR and AIFSR, Auxiliary Data and Instruction Fault Status Registers, PMSA」— 位元切分依官方逐欄核對
-- Description: Auxiliary Instruction Fault Status Register — 指令中止的實作定義補充資訊（MRC p15,0,Rt,c5,c1,1）
+- Description: Auxiliary Instruction Fault Status Register — 指令側同位／ECC 錯誤的定位資訊（來源、cache way、index、可否恢復；MRC/MCR p15,0,Rt,c5,c1,1）。整表依 2026-08 交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:0 | IMPDEF | RW | - | 實作定義（官方僅架構出暫存器位置與存取性） |
+| 31:28 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 27:24 | CacheWay | RW | - | 發生錯誤的 cache way（審查轉錄） |
+| 23:22 | Side | RW | - | 錯誤來源側（cache／TCM／AXI 等分類與 SideExt 併讀；審查轉錄） |
+| 21 | Recoverable | RW | - | 錯誤可否恢復（審查轉錄） |
+| 20 | SideExt | RW | - | 錯誤來源側擴充位（審查轉錄） |
+| 19:14 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 13:5 | Index | RW | - | 發生錯誤的 index（審查轉錄） |
+| 4:0 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
 
 ## DFAR
 - Offset: 0x07C
@@ -960,8 +1005,8 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:8 | RES0 | RO | - | 保留（官方標 UNK/SBZP；實際保留位數依區域數而定，此處以 ≤256 區域呈現） |
-| 7:0 | Region | RW | - | 目前區域編號（官方：欄寬 = log2(區域數) 向上取整） |
+| 31:4 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
+| 3:0 | Region | RW | - | 目前區域編號（官方規則：欄寬 = log2(區域數) 向上取整；R5 為 12 或 16 區 → 4 bits。2026-08 審查修正：舊版以 8 bits 呈現） |
 
 ## DRBAR
 - Offset: 0x088
@@ -1248,13 +1293,14 @@
 ## ATCMRR
 - Offset: 0x0C8
 - Reset: -
-- Description: ATCM Region Register — ATCM 基底位址與致能（c9,c1,0 為 R5 實作定義編碼；MRC p15,0,Rt,c9,c1,0）
+- Description: ATCM Region Register — ATCM 基底位址、大小與致能。編碼為 c9,c1,1（MRC p15,0,Rt,c9,c1,1；2026-08 交叉審查修正：舊版誤植為 c9,c1,0，正確編碼經 DDI 0460D Table 4-44 與 AMD/Xilinx 官方 R5 BSP（xreg_cortexr5.h）雙重確認）。欄位切分依審查轉錄自 DDI 0460D Table 4-44，尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:12 | Base | RW | - | ATCM 區域基底位址（對齊 TCM 大小） |
-| 11:2 | RES0 | RO | - | 保留 |
-| 1 | RES0 | RO | - | 保留 |
+| 11:7 | RES0 | RO | - | 讀為 UNP、寫入須為 0（審查轉錄） |
+| 6:2 | Size | RO | - | ATCM 大小（唯讀，寫入忽略；0=0KB、3=4KB…13=4MB，2^(Size+9) bytes；審查轉錄） |
+| 1 | RES0 | RO | 0 | 保留（SBZ） |
 | 0 | En | RW | - | ATCM 致能 |
 
 ### Enum: En
@@ -1264,13 +1310,14 @@
 ## BTCMRR
 - Offset: 0x0CC
 - Reset: -
-- Description: BTCM Region Register — BTCM 基底位址與致能（c9,c1,1 為 R5 實作定義編碼；MRC p15,0,Rt,c9,c1,1）
+- Description: BTCM Region Register — BTCM 基底位址、大小與致能。編碼為 c9,c1,0（MRC p15,0,Rt,c9,c1,0；2026-08 交叉審查修正：舊版誤植為 c9,c1,1，正確編碼經 DDI 0460D Table 4-43 與 AMD/Xilinx 官方 R5 BSP（xreg_cortexr5.h）雙重確認）。欄位切分依審查轉錄自 DDI 0460D Table 4-43，尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 31:12 | Base | RW | - | BTCM 區域基底位址（對齊 TCM 大小） |
-| 11:2 | RES0 | RO | - | 保留 |
-| 1 | RES0 | RO | - | 保留 |
+| 11:7 | RES0 | RO | - | 讀為 UNP、寫入須為 0（審查轉錄） |
+| 6:2 | Size | RO | - | BTCM 大小（唯讀，寫入忽略；同 ATCMRR 編碼；審查轉錄） |
+| 1 | RES0 | RO | 0 | 保留（SBZ） |
 | 0 | En | RW | - | BTCM 致能 |
 
 ### Enum: En
@@ -1407,21 +1454,21 @@
 | 30 | Z | RW | - | 浮點比較：零 |
 | 29 | C | RW | - | 浮點比較：進位 |
 | 28 | V | RW | - | 浮點比較：溢位 |
-| 27 | QC | RW | - | SIMD 累積飽和（無 SIMD 時 UNK/SBZP） |
-| 26 | AHP | RW | - | 半精度格式選擇 |
+| 27 | QC | RO | - | SIMD 累積飽和 — R5F 無 Advanced SIMD，架構層 UNK/SBZP；審查轉錄稱產品為 DNM/RAZ（待 TRM 親驗） |
+| 26 | AHP | RO | - | 半精度格式選擇 — R5F 無半精度擴充；審查轉錄稱產品為 DNM/RAZ（待 TRM 親驗） |
 | 25 | DN | RW | - | Default NaN 模式 |
 | 24 | FZ | RW | - | Flush-to-zero 模式 |
 | 23:22 | RMode | RW | - | 捨入模式 |
 | 21:20 | Stride | RW | - | 官方已棄用（VFP 向量模式遺留） |
 | 19 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
 | 18:16 | Len | RW | - | 官方已棄用（VFP 向量模式遺留） |
-| 15 | IDE | RW | - | Input Denormal 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
+| 15 | IDE | RO | 0 | Input Denormal 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
 | 14:13 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
-| 12 | IXE | RW | - | Inexact 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
-| 11 | UFE | RW | - | Underflow 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
-| 10 | OFE | RW | - | Overflow 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
-| 9 | DZE | RW | - | Division by Zero 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
-| 8 | IOE | RW | - | Invalid Operation 例外 trap 致能（VFPv3/v4 為 RAZ/WI） |
+| 12 | IXE | RO | 0 | Inexact 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
+| 11 | UFE | RO | 0 | Underflow 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
+| 10 | OFE | RO | 0 | Overflow 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
+| 9 | DZE | RO | 0 | Division by Zero 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
+| 8 | IOE | RO | 0 | Invalid Operation 例外 trap 致能 — R5F 為 VFPv3（非 U 變體），此位 RAZ/WI（DDI 0406C.d 親驗：僅 VFPv2/VFPv3U/VFPv4U 支援 trap） |
 | 7 | IDC | RW | - | Input Denormal 累積例外旗標 |
 | 6:5 | RES0 | RO | - | 保留（官方標 UNK/SBZP） |
 | 4 | IXC | RW | - | Inexact 累積例外旗標 |
@@ -1451,19 +1498,77 @@
 ## FPEXC
 - Offset: 0x0EC
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「FPEXC, Floating-Point Exception Control register, PMSA」— 位元切分依官方逐欄核對
-- Description: Floating-Point Exception Control Register — FPU 總開關與例外狀態（VMRS Rt,FPEXC）
+- Description: Floating-Point Exception Control Register — FPU 總開關與例外狀態（VMRS Rt,FPEXC；僅 R5F）。2026-08 交叉審查修正：架構通用版的 EX[31]＋SUBARCH[29:0] 在 Cortex-R5F 不成立——產品切分依審查轉錄自 DDI 0460D §11.3.3 Table 11-6（bit31 RAZ、bit29 為 DEX），Linux kernel 的 FPEXC_DEX=(1<<29) 佐證，尚未親驗原文
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31 | EX | RO | - | 例外狀態位（需保存多少 FPU 狀態） |
+| 31 | RES0 | RO | 0 | R5F 讀為 0（架構的 EX 位在本產品 RAZ；審查轉錄） |
 | 30 | EN | RW | 0 | FPU 總致能（0 時多數浮點指令 UNDEFINED） |
-| 29:0 | SUBARCH | RW | - | 子架構定義（含實作定義的例外資訊） |
+| 29 | DEX | RW | 0 | Defined synchronous instruction exceptional flag — 嘗試執行未定義的向量運算時置 1（審查轉錄；Linux FPEXC_DEX 佐證） |
+| 28:0 | RES0 | RO | 0 | R5F 讀為 0（審查轉錄） |
 
 ### Enum: EN
 - 0: FPU 停用（浮點指令產生 Undefined 例外）
 - 1: FPU 啟用
 
-### Enum: EX
-- 0: 只需保存暫存器內容與 FPSCR
-- 1: 需額外保存子架構定義的狀態
+## MVFR0
+- Offset: 0x0F0
+- Reset: -
+- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「MVFR0, Media and VFP Feature Register 0, PMSA」— 位元切分依官方逐欄核對
+- Description: Media and VFP Feature Register 0 — FPU 能力識別（單/倍精度、除法、開方、trap 支援；僅 R5F；VMRS Rt,MVFR0）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 31:28 | RMode | RO | - | 支援的捨入模式 |
+| 27:24 | ShortVec | RO | - | VFP short vector 支援 |
+| 23:20 | Sqrt | RO | - | 硬體開方（VSQRT）支援 |
+| 19:16 | Divide | RO | - | 硬體除法（VDIV）支援 |
+| 15:12 | TrapExc | RO | - | 例外 trap 支援（官方：VFPv3/VFPv4 此欄為 0） |
+| 11:8 | DP | RO | - | 倍精度支援 |
+| 7:4 | SP | RO | - | 單精度支援 |
+| 3:0 | SIMDReg | RO | - | Advanced SIMD 暫存器組 |
+
+### Enum: RMode
+- 0b0000: 僅 Round to Nearest（VCVT 例外地支援 RZ）
+- 0b0001: 支援全部捨入模式
+
+### Enum: TrapExc
+- 0b0000: 不支援 trap（VFPv3/VFPv4 固定值）
+- 0b0001: 支援例外 trap
+
+### Enum: DP
+- 0b0000: 硬體不支援倍精度
+- 0b0001: 支援倍精度
+
+### Enum: SP
+- 0b0000: 硬體不支援單精度
+- 0b0001: 支援單精度
+
+### Enum: SIMDReg
+- 0b0000: 不支援
+- 0b0001: 支援 16×64-bit 暫存器組
+
+## MVFR1
+- Offset: 0x0F4
+- Reset: -
+- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「MVFR1, Media and VFP Feature Register 1, PMSA」— 位元切分依官方逐欄核對
+- Description: Media and VFP Feature Register 1 — FMAC／半精度／SIMD／NaN・FtZ 模式識別（僅 R5F；VMRS Rt,MVFR1）
+
+| Bits  | Field | Access | Reset | Description |
+|-------|-------|--------|-------|-------------|
+| 31:28 | SIMDFMAC | RO | - | 融合乘加（FMA）指令支援 |
+| 27:24 | VFPHPFP | RO | - | VFP 半精度轉換指令支援 |
+| 23:20 | SIMDHPFP | RO | - | Advanced SIMD 半精度支援 |
+| 19:16 | SIMDSPFP | RO | - | Advanced SIMD 單精度支援 |
+| 15:12 | SIMDInt | RO | - | Advanced SIMD 整數指令支援 |
+| 11:8 | SIMDLS | RO | - | Advanced SIMD 載入／儲存支援 |
+| 7:4 | DNaN | RO | - | NaN 傳遞模式支援 |
+| 3:0 | FtZ | RO | - | Flush-to-Zero 模式支援 |
+
+### Enum: DNaN
+- 0b0000: 硬體僅支援 Default NaN 模式
+- 0b0001: 硬體支援 NaN 值傳遞
+
+### Enum: FtZ
+- 0b0000: 硬體僅支援 Flush-to-Zero 模式
+- 0b0001: 硬體支援完整 denormalized 運算

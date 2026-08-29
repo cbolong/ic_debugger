@@ -186,8 +186,8 @@ def test_sample_bin_against_r5_spec():
     binf = load_bin(ROOT / "examples" / "sample_r5.bin")
     payload = build_payload(spec, binf)
     st = payload["stats"]
-    assert st["total"] == 60 and st["covered"] == 60
-    assert st["bin_size"] == st["spec_span_bytes"] == 240
+    assert st["total"] == 62 and st["covered"] == 62
+    assert st["bin_size"] == st["spec_span_bytes"] == 248
 
     regs = {r["name"]: r for r in payload["registers"]}
     assert regs["MIDR"]["differs"] is False
