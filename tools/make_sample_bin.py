@@ -29,9 +29,9 @@ WORDS = [
     ("ID_MMFR1",    0x00000000),
     ("ID_MMFR2",    0x01200000),  # WFI 停頓、CP15 barrier
     ("ID_MMFR3",    0x00000211),  # set/way＋MVA 維護
-    ("ID_ISAR0",    0x02101111),  # SDIV/UDIV（Thumb+ARM）等
+    ("ID_ISAR0",    0x02101111),  # r1p2 推導值（Table 4-15：r1p0 起 ARM+Thumb SDIV/UDIV；Table 4-2 印 0x01101111，TRM 內部衝突見 SPEC_REVIEW_LOG）
     ("ID_ISAR1",    0x13112111),
-    ("ID_ISAR2",    0x21232141),
+    ("ID_ISAR2",    0x21232141),  # r1p2 推導值（Table 4-17：r1p0 起加 PLDW ⇒ MemHint=0x4；Table 4-2 印 0x21232131，TRM 內部衝突見 SPEC_REVIEW_LOG）
     ("ID_ISAR3",    0x01112131),
     ("ID_ISAR4",    0x00010142),
     ("ID_ISAR5",    0x00000000),
@@ -79,7 +79,7 @@ WORDS = [
     ("TPIDRPRW",    0x8001C000),  # OS per-CPU 結構指標
     # ── 核心狀態＋FPU ───────────────────────────────────────────────
     ("CPSR",        0x40000113),  # Z=1、A 遮罩、Supervisor、IRQ/FIQ 開啟
-    ("FPSID",       0x41023154),  # ARM、VFPv3 null subarch
+    ("FPSID",       0x41023153),  # DDI 0460D Table 11-7 審查轉錄值（r1p2 R5F）——非親驗矽讀值
     ("FPSCR",       0x00000010),  # IXC=1（曾發生 inexact）
     ("FPEXC",       0x40000000),  # EN=1
     ("MVFR0",       0x10110221),  # 單/倍精度、VDIV/VSQRT（審查轉錄的 R5F 典型值，僅示範）

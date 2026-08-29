@@ -694,7 +694,7 @@
 - Offset: 0x090
 - Reset: -
 - Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） bitfield ID_AA64MMFR0_EL1_Type — 12 個欄位位置逐欄相符
-- Description: AArch64 Memory Model Feature Register 0 — 實體位址範圍與頁面大小支援度
+- Description: AArch64 Memory Model Feature Register 0 — 實體位址範圍與頁面大小支援度。2026-08 第四輪審查補記：A55 TRM §3.2.60／Figure 3-127（審查轉錄）的產品圖把 [63:24] 整段併標 RES0（本核心該區讀 0）；但其中 TGran4/TGran64 是 Armv8.0 架構基線欄位、0 是「支援」的有效編碼——本表保留架構欄位切分，並在該兩欄同時記錄兩層語意
 
 | Bits  | Field     | Access | Reset | Description |
 |-------|-----------|--------|-------|-------------|
@@ -703,8 +703,8 @@
 | 43:40 | TGran4_2  | RO     | -     | 第 2 階轉換的 4 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 39:36 | TGran64_2 | RO     | -     | 第 2 階轉換的 64 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
 | 35:32 | TGran16_2 | RO     | -     | 第 2 階轉換的 16 KB 頁支援。本核心（Armv8.2）讀 0（較新架構才定義） |
-| 31:28 | TGran4    | RO     | -     | 4 KB 頁支援。v8.0 基線欄位；注意官方編碼：0＝支援 4KB（讀 0 不是 RES0） |
-| 27:24 | TGran64   | RO     | -     | 64 KB 頁支援。v8.0 基線欄位；注意官方編碼：0＝支援 64KB（讀 0 不是 RES0） |
+| 31:28 | TGran4    | RO     | -     | 4 KB 頁支援。Armv8.0 架構基線欄位，官方編碼 0＝支援 4KB（0b1111＝不支援）；A55 TRM Figure 3-127 產品圖將此固定零值併入 [63:24] RES0 標示（審查轉錄）——兩層描述皆為真 |
+| 27:24 | TGran64   | RO     | -     | 64 KB 頁支援。Armv8.0 架構基線欄位，官方編碼 0＝支援 64KB（0b1111＝不支援）；A55 TRM Figure 3-127 產品圖將此固定零值併入 [63:24] RES0 標示（審查轉錄） |
 | 23:20 | TGran16   | RO     | -     | 16 KB 頁支援 |
 | 19:16 | BigEndEL0 | RO     | -     | EL0 混合 endian 支援 |
 | 15:12 | SNSMem    | RO     | -     | 安全／非安全記憶體區分 |
@@ -760,11 +760,12 @@
 ## AIDR_EL1
 - Offset: 0x0A8
 - Reset: -
-- Description: Auxiliary ID Register — 實作定義的補充識別（A55 TRM 定義其讀值，尚未取得；MRS Rt,AIDR_EL1）
+- Description: Auxiliary ID Register — Cortex-A55 未使用此暫存器（MRS Rt,AIDR_EL1）。2026-08 第四輪審查修正：舊版誤列整顆 [63:0] 實作定義——審查轉錄 A55 TRM §3.2.14／Figure 3-91：[63:32] 保留、[31:0] RES0，讀值恆 0（待親驗原文）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:0 | AIDR | RO | - | 實作定義 |
+| 63:32 | RES0 | RO | 0 | 保留 |
+| 31:0 | RES0 | RO | 0 | Cortex-A55 未使用，讀 0（審查轉錄 §3.2.14，待親驗） |
 
 ## ID_AA64PFR1_EL1
 - Offset: 0x0B0
@@ -1287,17 +1288,17 @@
 - Offset: 0x1A8
 - Reset: -
 - Verified: ARM 官方 Trusted Firmware-A（ARM-software/arm-trusted-firmware include/lib/cpus/aarch64/cortex_a55.h） — 編碼 S3_0_C15_C1_0 與三個 errata 位的位置經 ARM 官方原始碼核對
-- Description: CPU Auxiliary Control Register（MRS S3_0_C15_C1_0）。⚠ A55 TRM（§3.2.28，審查確認）將整顆標為「Reserved for Arm internal use」——除非 Arm 指示，**不得修改**；下列三個具名位僅為 ARM 官方 TF-A errata workaround 所操作位置的證據（非公開穩定介面），其餘位元一律視為內部保留
+- Description: CPU Auxiliary Control Register（MRS S3_0_C15_C1_0）。⚠ A55 TRM（§3.2.28，審查確認）將整顆標為「Reserved for Arm internal use」——除非 Arm 指示，**不得修改**；下列三個具名位僅為 ARM 官方 TF-A errata workaround 所操作位置的證據（非公開穩定介面），其餘位元一律視為內部保留。2026-08 第四輪審查修正：整顆存取屬性為 RW（TRM accessibility 審查轉錄＋TF-A 以 MSR 寫入 errata 位佐證）——Access 欄記硬體屬性，「不得修改」是使用政策（本工具僅解碼 dump，不寫硬體），舊版把內部保留位標 RO 是把政策誤植成硬體語意
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:50 | INTERNAL | RO | - | Arm 內部保留（不得修改） |
+| 63:50 | INTERNAL | RW | - | Arm 內部保留（未經 Arm 指示不得修改） |
 | 49 | DIS_L1_PGWLK | RW | - | 停用 L1 pagewalk 快取（TF-A errata 1221012） |
-| 48:32 | INTERNAL2 | RO | - | Arm 內部保留（不得修改） |
+| 48:32 | INTERNAL2 | RW | - | Arm 內部保留（未經 Arm 指示不得修改） |
 | 31 | DIS_DUAL_ISSUE | RW | - | 停用雙發射（TF-A errata 778703） |
-| 30:25 | INTERNAL1 | RO | - | Arm 內部保留（不得修改） |
+| 30:25 | INTERNAL1 | RW | - | Arm 內部保留（未經 Arm 指示不得修改） |
 | 24 | DIS_WR_STREAM | RW | - | 停用 write streaming（TF-A errata 778703） |
-| 23:0 | INTERNAL0 | RO | - | Arm 內部保留（不得修改） |
+| 23:0 | INTERNAL0 | RW | - | Arm 內部保留（未經 Arm 指示不得修改） |
 
 ## CPUPWRCTLR_EL1
 - Offset: 0x1B0

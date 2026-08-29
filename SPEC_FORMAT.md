@@ -55,6 +55,9 @@ IC Debugger 的 CPU spec 以 Markdown 檔存放在 `specs/<廠商>/<型號>.md`�
 
 - 表頭必須含 `Bits` 與 `Field` 兩欄（也接受中文：位元／欄位／存取／重置／說明），
   欄位順序不拘，`Access`、`Reset`、`Description` 可省略。
+- `Access` 記的是**硬體存取屬性**（依原廠文件：RW／RO／WO／RAZ…）。使用政策
+  （例如「Arm 內部保留，不得修改」）寫在 Description，不准用 RO 假裝——本工具
+  只解碼 dump、不寫硬體，Access 純屬資訊呈現（2026-08 R4 審查決議）。
 - `Bits`：`31:24`（高:低）或單一位元 `5`。**整個暫存器的每個 bit 都建議被表列
   涵蓋**；沒涵蓋到的位元 app 會顯示成「（未定義）」。
 - 保留位元請命名 `RES0`／`RES1`（或 `RESERVED`），app 會淡化顯示；同名欄位

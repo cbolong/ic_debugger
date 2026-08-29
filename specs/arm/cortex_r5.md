@@ -1,9 +1,9 @@
 # CPU: ARM Cortex-R5
 # Version: r1p2 · ARMv7-R
 # Width: 32
-# Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄）／ARM DDI 0460D（Cortex-R5 TRM，僅 TCMTR）
+# Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄）／ARM DDI 0460D（Cortex-R5 TRM：TCMTR 親驗；ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC 六顆位元表為審查轉錄）
 # Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
-# Description: ARMv7-R（PMSAv7）架構定義的全部可讀 CP15 系統控制暫存器＋CPSR＋FPU（R5F），依官方 Table B5-11 順序排列
+# Description: ARMv7-R（PMSAv7）架構 Table B5-11 清單中本工具可 dump 的可讀 CP15 系統控制暫存器＋選收的 Cortex-R5 產品暫存器（ATCMRR/BTCMRR）＋CPSR＋FPU（R5F），依官方 Table B5-11 順序排列；不含 c15 實作定義群與其他僅見於 TRM 的暫存器（範圍見下方註解的不收清單）
 
 <!--
   ── Offset 對應約定 ────────────────────────────────────────────────
@@ -36,7 +36,6 @@
        ID_PFR1[19:16] 自證，Cortex-R5 未實作）
      * c11 TCM DMA 群、c15 實作定義群（需 TRM；含 Secondary ACTLR、
        Correctable Fault Location 等，見 DDI 0460 §4.1 的 c15 清單）
-     * MVFR0/MVFR1（FPU 特徵暫存器，VMRS 可讀——待補）
 -->
 
 ## MIDR
