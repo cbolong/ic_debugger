@@ -109,8 +109,6 @@ def test_ui_loads_despite_two_phase_bridge_injection(tmp_path, delay_ms):
     """空窗期不論多長，UI 最後都必須拿到資料（這正是現場壞掉的情境）。"""
     playwright = pytest.importorskip("playwright.sync_api")
     import os
-    if not os.path.exists(CHROMIUM):
-        pytest.skip("找不到 chromium")
 
     html = build_main_html("").replace(
         "</head>", f"<script>{_fake_bridge_js(delay_ms)}</script></head>")
@@ -118,7 +116,14 @@ def test_ui_loads_despite_two_phase_bridge_injection(tmp_path, delay_ms):
     page_file.write_text(html, encoding="utf-8")
 
     with playwright.sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=CHROMIUM)
+        # 先吃固定路徑（Claude 工作容器），沒有再退回 playwright 自管的
+        # 瀏覽器（CI 的 `python -m playwright install chromium` 裝在這）。
+        # 寫死單一路徑曾讓這 3 條在 Windows CI 靜默 skip（R4 審查抓到
+        # CI 179/3 與本機 182/0 不一致的成因）。
+        exe = CHROMIUM if os.path.exists(CHROMIUM) else p.chromium.executable_path
+        if not exe or not os.path.exists(exe):
+            pytest.skip("找不到 chromium（固定路徑與 playwright 自管瀏覽器皆缺）")
+        browser = p.chromium.launch(executable_path=exe)
         page = browser.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
