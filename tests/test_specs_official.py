@@ -519,3 +519,65 @@ def test_a55_sctlr_2928_res1_locked():
     assert "LSMAOE" not in f and "nTLSMD" not in f
     row = next((x for x in sctlr.fields if x.msb == 29 and x.lsb == 28), None)
     assert row is not None and row.name == "RES1" and row.reset == 0b11
+
+
+def test_a55_aidr_is_res0_for_cortex_a55():
+    """R4 審查修正鎖定（R4-01，結案 R2 A55-04）：A55 TRM §3.2.14／Figure 3-91
+    （審查轉錄）——AIDR_EL1 本核心未使用，[63:32] 保留、[31:0] RES0、讀 0。
+    舊版誤列整顆 [63:0] 實作定義，不准改回。"""
+    aidr = _regs(_spec("arm/cortex_a55.md"))["AIDR_EL1"]
+    f = {(x.msb, x.lsb): x.name for x in aidr.fields}
+    assert f == {(63, 32): "RES0", (31, 0): "RES0"}
+    assert "未使用" in aidr.desc
+
+
+def test_r5_id_isar2_r1p2_conflict_is_documented():
+    """R4 新發現鎖定（R4-02）：ID_ISAR2 與 ID_ISAR0 同型的 TRM 內部衝突
+    （Table 4-2 印 r0p0 值 0x21232131；Table 4-17 明定 r1p0 起 MemHint=0x4
+    → r1p2 推導 0x21232141）。總帳必須記錄兩個值並列入衝突節，spec 的
+    Reset 不准直接回填任一個。"""
+    log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
+    assert "0x21232131" in log and "0x21232141" in log
+    assert "ID_ISAR2" in log.split("已知衝突")[1].split("##")[0]
+    isar2 = _regs(_spec("arm/cortex_r5.md"))["ID_ISAR2"]
+    assert isar2.reset is None
+
+
+def test_r5_header_has_no_stale_mvfr_todo():
+    """R4 審查修正鎖定（R4-05）：MVFR0/MVFR1 已收錄，檔頭註解不得再留
+    「待補」；Source 也不得再寫 DDI 0460D「僅 TCMTR」（六顆轉錄表同樣
+    依它）。"""
+    text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
+    assert "VMRS 可讀——待補" not in text
+    assert "僅 TCMTR" not in text
+
+
+def test_sample_r5_fpsid_is_declared_product_or_synthetic():
+    """R4 審查修正鎖定（R4-06）：sample 的 FPSID 必須等於總帳記錄的
+    Table 11-7 轉錄值 0x41023153；來路不明的 0x41023154 不准回來。"""
+    src = (SPECS.parent / "tools" / "make_sample_bin.py").read_text(encoding="utf-8")
+    assert "0x41023153" in src and "0x41023154" not in src
+
+
+def test_a55_mmfr0_tgran_dual_layer_locked():
+    """R4 裁定鎖定（必答 3）：TGran4/TGran64 保留架構欄位切分（0＝支援），
+    同欄 Description 必須同時記錄 A55 TRM Figure 3-127 把 [63:24] 併標
+    RES0 的產品畫法。兩層語意都不准刪；「讀 0 不是 RES0」這種單層絕對句
+    不准回來。"""
+    mmfr0 = _regs(_spec("arm/cortex_a55.md"))["ID_AA64MMFR0_EL1"]
+    rows = {x.name: x for x in mmfr0.fields}
+    assert "支援 4KB" in rows["TGran4"].desc and "3-127" in rows["TGran4"].desc
+    assert "支援 64KB" in rows["TGran64"].desc and "3-127" in rows["TGran64"].desc
+    assert "讀 0 不是 RES0" not in rows["TGran4"].desc
+    assert "3-127" in mmfr0.desc  # 產品畫法也要寫在暫存器層說明
+
+
+def test_a55_cpuactlr_access_is_hardware_semantics():
+    """R4 審查修正鎖定（R4-04）：Access 欄記「硬體存取屬性」——CPUACTLR_EL1
+    整顆 RW（TRM accessibility 審查轉錄＋TF-A 以 MSR 寫 errata 位佐證），
+    內部保留位不得用 RO 假裝寫入政策；「不得修改」寫在 Description。"""
+    cpuactlr = _regs(_spec("arm/cortex_a55.md"))["CPUACTLR_EL1"]
+    for x in cpuactlr.fields:
+        assert x.access == "RW", (x.name, x.access)
+        if x.name.startswith("INTERNAL"):
+            assert "不得修改" in x.desc

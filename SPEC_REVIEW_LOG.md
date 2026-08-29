@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝本輪（2026-08-29）套用
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（R3R，本輪 commit）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -42,6 +42,13 @@
 | 24 | n25/n45 | udcause 存在條件修正（predicate=any，與 N 擴充無關） | 親驗（pinned csr_andes.c） |
 | 25 | n25/n45 | Status 改為「QEMU 模型 profile」定位＋priv 1.12／mvendorid 0x31E 期望值註 | 親驗（pinned cpu.c） |
 | 26 | n45 | Status 記錄官網世代衝突（RV32GCB／M-U-S／PMP32／PMA16 vs QEMU 模型） | R3 確認之來源衝突 |
+| 27 | cortex_a55 | AIDR_EL1 版面修正：[63:32] RES0＋[31:0] RES0（A55 未使用、讀 0）——結案 R2 A55-04／R4-01 | 審查轉錄（§3.2.14／Figure 3-91） |
+| 28 | cortex_a55 | ID_AA64MMFR0 TGran4/TGran64 改雙層描述（架構 0＝支援＋產品圖 Figure 3-127 併標 RES0）；R3R 反問 1 結案 | 親驗（sail／0406C 架構側）＋審查轉錄（Figure 3-127） |
+| 29 | cortex_a55 | CPUACTLR_EL1 內部保留位 Access RO→RW；Access 欄明定為硬體屬性（R4-04） | 審查轉錄（§3.2.28 accessibility）＋TF-A MSR 寫入佐證 |
+| 30 | cortex_r5 | 檔頭清理：Source「僅 TCMTR」、MVFR 待補註解、「全部可讀 CP15」範圍語（R4-05） | 自檔矛盾 |
+| 31 | tools | sample_r5.bin FPSID 0x41023154→0x41023153（對齊 Table 11-7 轉錄值；舊值無出處，QEMU r5f 亦未定義 FPSID）（R4-06） | 審查轉錄 |
+| 32 | ci | auto-build 安裝 playwright＋chromium：3 條 bridge 測試 CI 不再 skip，CI 與本機跑同一套全量測試（R4-03） | 環境 |
+| 33 | 本檔＋SPEC_FORMAT | ID_ISAR2 自待回填清單改列 TRM 內部衝突（R4-02，見第二節）；SPEC_FORMAT 明定 Access＝硬體存取屬性 | 親驗（0406C MemHint 編碼＋QEMU cpu32.c）＋審查轉錄（Table 4-17） |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 
@@ -51,12 +58,18 @@
 ### R5（審查轉錄的 Table 4-2 讀值——**未寫入 spec**，回填前逐項親驗）
 CTR=0x8003C003、TCMTR=0x00010001、ID_PFR0=0x00000131、ID_PFR1=0x00000001、ID_DFR0=0x00010400、
 ID_AFR0=0、ID_MMFR0=0x00210030、MMFR1=0、MMFR2=0x01200000、MMFR3=0x00000211、
-ID_ISAR1=0x13112111、ISAR2=0x21232131、ISAR3=0x01112131、ISAR4=0x00010142、ISAR5=0、
+ID_ISAR1=0x13112111、ISAR3=0x01112131、ISAR4=0x00010142、ISAR5=0、
 AIDR=0、CPACR=0、PMCR=0x41151800、FPSID=0x41023153、MVFR0=0x10110221、MVFR1=0x00000011
 
-**已知衝突（R3 確認，不得直接回填）**：ID_ISAR0 — Table 4-2 印 0x01101111（Divide=僅 Thumb），
-但 Table 4-15 明定 r1p0 起 ARM+Thumb 皆有 SDIV/UDIV（Divide=0x2）→ r1p2 應推導 0x02101111。
-TRM 內部矛盾，需硬體實測、errata 或新版 TRM 定案。
+**已知衝突（R3／R4 確認，不得直接回填）**：
+- ID_ISAR0 — Table 4-2 印 0x01101111（Divide=僅 Thumb），但 Table 4-15 明定 r1p0 起 ARM+Thumb
+  皆有 SDIV/UDIV（Divide=0x2）→ r1p2 應推導 0x02101111。R4 檢索：公開 SDEN（ARM-EPM-012129 v3.0）
+  查無 Table 4-2 勘誤（審查轉錄）；QEMU cortex-r5 用推導值（qemu/qemu target/arm/tcg/cpu32.c 親驗）。
+  需硬體實測或新版 TRM 定案。
+- ID_ISAR2 — Table 4-2 印 0x21232131（MemHint[7:4]=0x3＝僅 PLD/PLI，即 r0p0 值），但 Table 4-17
+  明定 r1p0 起支援 PLDW→MemHint=0x4（0406C.d MemHint_instrs 編碼 0b0100＝加 PLDW，親驗）→ r1p2
+  應推導 0x21232141。QEMU cortex-r5（cpu32.c 親驗）與 sample_r5.bin 皆用推導值。R4 新發現，
+  與 ID_ISAR0 同型（Table 4-2 疑沿用 r0p0 讀值未隨版更新）。
 
 ### R5 其他待辦
 - SCTLR 產品固定位（FI/RR/Z 的 SBO/無效行為）：親驗 Table 4-24 後把 Access/Reset 產品化
@@ -68,8 +81,8 @@ TRM 內部矛盾，需硬體實測、errata 或新版 TRM 定案。
 ### A55（審查轉錄的 Table 3-49 讀值——未寫入 spec）
 CTR_EL0=0x84448004、ID_AA64DFR0=0x…10305408、ID_AA64ISAR1=0x…00100001、ID_AA64MMFR0=0x…00101122、
 ID_AA64MMFR1=0x…10212122、ID_AA64MMFR2=0x…00001011、ID_AA64PFR1=0x…00000010、REVIDR=0、AIDR=0、CSSELR=0
-- 疑點待回問：審查稱 MMFR0[63:24] 為 RES0——但 TGran4[31:28]/TGran64[27:24] 是 v8.0 基線欄位，
-  讀 0＝「支援」（官方編碼），非 RES0。待 Figure 原文釐清 TRM 畫法。
+- MMFR0[63:24] 疑點已於 R4 釐清：A55 TRM Figure 3-127 確實把 [63:24] 整段併標 RES0（產品畫法，
+  審查轉錄），同時 TGran4/TGran64 的架構編碼 0＝支援仍成立——spec 以雙層描述並存（決議 #28），結案。
 - EL2/EL3 暫存器群、PMU 直接視圖群、DSU 叢集暫存器（TF-A dsu_def.h 可為編碼憑據）：依需求擴充
 
 ### Andes
@@ -88,7 +101,7 @@ ID_AA64MMFR1=0x…10212122、ID_AA64MMFR2=0x…00001011、ID_AA64PFR1=0x…00000
 | R2 A55-05/06 定性 | 「產品佈局／位置錯誤」 | **改定性**為「產品 overlay／存在性呈現」——位置層級的 sail 對照未被推翻 |
 | R2 A55-02 引用 | CCSIDR 圖號 Figure 3-101 | **更正為 Figure 3-99**（R3；3-101 是 CPACR_EL1）。教訓：圖號類引用以「章節＋暫存器名」為錨 |
 | R2 A55-03 歸因 | REVIDR 語意錯置歸因 VPIDR_EL2 | 更正：源頭是 ARMv7 REVIDR 選配別名語意（R2R 提出、R3 採納） |
-| R2 測試備註 | 「170 passed 3 skipped」暗示 repo 測試異常 | 環境差異：該環境缺 Python playwright 套件（3 條 bridge 測試 skip）。Claude 環境 node v22.22.2＋playwright 皆備，173 passed 0 skipped |
+| R2 測試備註 | 「170 passed 3 skipped」暗示 repo 測試異常 | 環境差異：該環境缺 Python playwright 套件（3 條 bridge 測試 skip）。Claude 環境 node＋playwright 皆備，skip=0（R3R 時 176 條、R4R 加 6 條鎖定測試後 182 條）。R4 補充：CI 過去同樣缺 playwright（skip 3）——R4R 起 workflow 安裝 playwright＋chromium，CI 與本機跑同一套全量測試 |
 
 ## 四、雙方同意、尚未實作的機制改進
 

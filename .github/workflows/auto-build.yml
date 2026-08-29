@@ -43,6 +43,11 @@ jobs:
           # PyInstaller 鎖主版本：bootloader/打包行為隨主版本大改，
           # 不鎖的話「同一份 code 兩次 build 行為不同」（ic-monitor 事故）。
           pip install "pyinstaller>=6,<7" pytest
+          # bridge 競態測試（tests/test_bridge_init.py，重演 2026-08-24 現場
+          # 事故）需要真瀏覽器：不裝 playwright 時這 3 條在 CI 會靜默 skip
+          # （R4 審查抓到 CI 與本機 passed 數不一致）——裝上讓 CI 跑滿全部測試。
+          pip install playwright
+          python -m playwright install chromium
 
       - name: Syntax check（先擋 Python 層錯誤，別浪費打包時間）
         run: python -m compileall -q main.py app_state.py app_config.py core ui tools tests
