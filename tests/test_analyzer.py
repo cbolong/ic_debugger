@@ -196,10 +196,10 @@ def test_sample_bin_against_r5_spec():
     m = next(r for r in sctlr["rows"] if r["name"] == "M")
     assert m["enum_label"] == "MPU 開啟" and m["differs"] is True
     dfsr = regs["DFSR"]
-    fs = next(r for r in dfsr["rows"] if r["name"] == "FS[3:0]")
-    assert "對齊故障" in fs["enum_label"]  # FS[4]=0 讀法（官方 Table B5-8）
-    wnr = next(r for r in dfsr["rows"] if r["name"] == "WnR")
-    assert wnr["enum_label"] == "由寫入指令造成"  # 官方 WnR 用語
+    fs = next(r for r in dfsr["rows"] if r["name"] == "Status")
+    assert "對齊故障" in fs["enum_label"]  # S=0 讀法（官方 Table B5-8；產品欄名 Status）
+    rw = next(r for r in dfsr["rows"] if r["name"] == "RW")
+    assert rw["enum_label"] == "由寫入指令造成"  # 產品欄名 RW（架構名 WnR）
     # SCTLR 全 bit 涵蓋 → 不該有未定義列
     assert all(r["kind"] == "field" for r in sctlr["rows"])
 

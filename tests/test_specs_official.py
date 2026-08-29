@@ -363,12 +363,16 @@ def test_a55_verified_registers_cite_the_machine_readable_spec():
 
 
 def test_a55_reset_values_are_not_fabricated():
-    """設計如此：Reset 值沒對照過原廠 TRM 就寫 `-`。
-    唯一的例外 MIDR_EL1 必須在 Description 裡把來歷講出來。"""
+    """設計如此：Reset 值沒有可交代的出處就寫 `-`，有出處就必須寫在
+    Description。例外清單（逐一附來歷）：MIDR_EL1（推導）、REVIDR_EL1／
+    AIDR_EL1（R5R：Table 3-49 審查轉錄，待親驗）。"""
     spec = _spec("arm/cortex_a55.md")
-    with_reset = [r for r in spec.registers if r.reset is not None]
-    assert [r.name for r in with_reset] == ["MIDR_EL1"]
-    assert "尚未用 A55 TRM 確認" in with_reset[0].desc
+    with_reset = {r.name: r for r in spec.registers if r.reset is not None}
+    assert set(with_reset) == {"MIDR_EL1", "REVIDR_EL1", "AIDR_EL1"}
+    assert "尚未用 A55 TRM 確認" in with_reset["MIDR_EL1"].desc
+    for n in ("REVIDR_EL1", "AIDR_EL1"):
+        assert with_reset[n].reset == 0
+        assert "Table 3-49" in with_reset[n].desc and "轉錄" in with_reset[n].desc
 
 
 def test_r5_reset_values_are_not_fabricated():
@@ -522,12 +526,14 @@ def test_a55_sctlr_2928_res1_locked():
 
 
 def test_a55_aidr_is_res0_for_cortex_a55():
-    """R4 審查修正鎖定（R4-01，結案 R2 A55-04）：A55 TRM §3.2.14／Figure 3-91
-    （審查轉錄）——AIDR_EL1 本核心未使用，[63:32] 保留、[31:0] RES0、讀 0。
-    舊版誤列整顆 [63:0] 實作定義，不准改回。"""
+    """R4 修正＋R5 精修鎖定（R4-01→R5-03）：A55 TRM §3.2.14／Figure 3-91
+    （審查轉錄）——上半部原文是 **Reserved**（不是 RES0，兩者無佐證不可互換）、
+    下半部才是 RES0；register reset=0（Table 3-49）。舊版整顆 [63:0] 實作定義
+    與 R4R 的「上半部 RES0」都不准回來。"""
     aidr = _regs(_spec("arm/cortex_a55.md"))["AIDR_EL1"]
     f = {(x.msb, x.lsb): x.name for x in aidr.fields}
-    assert f == {(63, 32): "RES0", (31, 0): "RES0"}
+    assert f == {(63, 32): "RESERVED", (31, 0): "RES0"}
+    assert aidr.reset == 0
     assert "未使用" in aidr.desc
 
 
@@ -581,3 +587,66 @@ def test_a55_cpuactlr_access_is_hardware_semantics():
         assert x.access == "RW", (x.name, x.access)
         if x.name.startswith("INTERNAL"):
             assert "不得修改" in x.desc
+
+
+def test_r5_sctlr_matches_ddi0460d_table_4_24():
+    """R5 審查修正鎖定（R5-01）：SCTLR 套用 DDI 0460D §4.3.16 Table 4-24
+    產品 overlay（審查轉錄）——FI[21]/Z[11] 為 SBO（Access=RO；0406C 玻璃屋
+    親驗：SBO/SBZ＝硬體忽略寫入）、RR[14]=RW/reset 0、AFE/TRE 具名 RO、
+    保留段依產品分組；「依 CFGBR 接腳」無原廠依據，不准回來。"""
+    text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
+    assert "CFGBR" not in text.replace("舊版「依 CFGBR 接腳」無原廠依據", "")
+    sctlr = _regs(_spec("arm/cortex_r5.md"))["SCTLR"]
+    f = {x.name: x for x in sctlr.fields if x.name != "RESERVED"}
+    assert f["FI"].access == "RO" and f["Z"].access == "RO"
+    assert f["RR"].access == "RW" and f["RR"].reset == 0
+    assert f["BR"].access == "RW"
+    assert f["AFE"].access == "RO" and f["TRE"].access == "RO"
+    groups = {(x.msb, x.lsb) for x in sctlr.fields if x.name == "RESERVED"}
+    assert {(23, 22), (9, 7), (6, 3)} <= groups
+    assert "U" not in f and "B" not in f  # 產品表不拆架構 U/B 欄
+
+
+def test_r5_fault_status_uses_product_field_names():
+    """R5 審查修正鎖定（R5-02）：DFSR/IFSR 使用 DDI 0460D §4.3.20 產品欄名
+    （SD/RW/S/Domain/Status，審查轉錄），架構欄名 ExT/WnR/FS[…] 不准回來；
+    DFSR[9:8] 有明文 always-read-0（reset 0）、IFSR[9:8] 無明文（不填）。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    dfsr = {x.name for x in regs["DFSR"].fields}
+    ifsr = {x.name for x in regs["IFSR"].fields}
+    assert {"SD", "RW", "S", "Domain", "Status"} <= dfsr
+    assert {"SD", "S", "Domain", "Status"} <= ifsr
+    for banned in ("ExT", "WnR", "FS[4]", "FS[3:0]"):
+        assert banned not in dfsr and banned not in ifsr
+    d98 = next(x for x in regs["DFSR"].fields if (x.msb, x.lsb) == (9, 8))
+    i98 = next(x for x in regs["IFSR"].fields if (x.msb, x.lsb) == (9, 8))
+    assert d98.reset == 0 and i98.reset is None
+
+
+def test_a55_revidr_product_layout_and_reset():
+    """R5 審查修正鎖定（R5-03）：REVIDR_EL1 上半部依 Figure 3-160 為 RESERVED
+    （不是 RES0）、下半部 REVIDR；register reset=0（Table 3-49 審查轉錄）。"""
+    revidr = _regs(_spec("arm/cortex_a55.md"))["REVIDR_EL1"]
+    f = {(x.msb, x.lsb): x.name for x in revidr.fields}
+    assert f == {(63, 32): "RESERVED", (31, 0): "REVIDR"}
+    assert revidr.reset == 0
+
+
+def test_a55_afsr_product_layout_and_register_access_text():
+    """R5 審查修正鎖定（R5-04）：AFSR0/1_EL1 上半部 RESERVED（Figure 3-85/3-88）、
+    下半部 RES0；Description 必須分層寫明「暫存器介面 RW（MRS/MSR）」——
+    RW 的是介面，不是內容。"""
+    regs = _regs(_spec("arm/cortex_a55.md"))
+    for n in ("AFSR0_EL1", "AFSR1_EL1"):
+        r = regs[n]
+        f = {(x.msb, x.lsb): x.name for x in r.fields}
+        assert f == {(63, 32): "RESERVED", (31, 0): "RES0"}, n
+        assert "RW" in r.desc and "MRS/MSR" in r.desc, n
+
+
+def test_r5_qemu_evidence_is_commit_pinned():
+    """R5 審查修正鎖定（R5-05）：總帳引用 QEMU 佐證必須釘 40 位 commit，並標示
+    該模型 MIDR 是 r1p3——僅作 r1p2 推導的交叉佐證，不取代 DDI 0460D。"""
+    log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
+    assert "d2e570cc0f97b936902a5b1b86b73c0f5998b475" in log
+    assert "r1p3" in log
