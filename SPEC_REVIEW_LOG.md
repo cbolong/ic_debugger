@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -49,6 +49,13 @@
 | 31 | tools | sample_r5.bin FPSID 0x41023154→0x41023153（對齊 Table 11-7 轉錄值；舊值無出處，QEMU r5f 亦未定義 FPSID）（R4-06） | 審查轉錄 |
 | 32 | ci | auto-build 安裝 playwright＋chromium：3 條 bridge 測試 CI 不再 skip，CI 與本機跑同一套全量測試（R4-03） | 環境 |
 | 33 | 本檔＋SPEC_FORMAT | ID_ISAR2 自待回填清單改列 TRM 內部衝突（R4-02，見第二節）；SPEC_FORMAT 明定 Access＝硬體存取屬性 | 親驗（0406C MemHint 編碼＋QEMU cpu32.c）＋審查轉錄（Table 4-17） |
+| 34 | cortex_r5 | SCTLR 套用 Table 4-24 產品 overlay（R5-01）：AFE/TRE 具名、保留段依產品分組（[23:22]/[9:7]/[6:3]…）、FI/Z 改 RO（SBO）、RR 補明文 reset 0、IE/NMFI 明文 RO；**刪除無出處的「依 CFGBR 接腳」**；SBO/SBZ 玻璃屋定義（硬體忽略寫入＋軟體寫錯須預期 UNPREDICTABLE）0406C.d 親驗；Reset 只在架構 RAO/RAZ 親驗或 Table 4-24 明文時填 | 審查轉錄（§4.3.16／Table 4-24）＋親驗（0406C 玻璃屋與架構層讀值） |
+| 35 | cortex_r5 | DFSR/IFSR 改產品欄名（R5-02）：ExT→SD、WnR→RW、FS[4]→S、FS[3:0]→Status，拆出 [9:8] 與 Domain[7:4]；DFSR[9:8] 明文 RAZ/WI 填 reset 0、IFSR[9:8] 無明文不填；SD 為 external abort 子分類、不併入 S:Status 主編碼 | 審查轉錄（§4.3.20／Figure 4-31/4-32／Table 4-28/4-29/4-30） |
+| 36 | cortex_a55 | AIDR_EL1 上半部 RES0→**RESERVED**（Figure 3-91 原文；更正決議 #27 的過度轉譯——Reserved 與 RES0 不可無佐證互換）；Reset 補 0x0（Table 3-49 Type=RO/Reset=0 轉錄）（R5-03） | 審查轉錄 |
+| 37 | cortex_a55 | REVIDR_EL1 上半部 RES0→RESERVED（Figure 3-160）；Reset 補 0x0（Table 3-49 轉錄）（R5-03） | 審查轉錄 |
+| 38 | cortex_a55 | AFSR0/1_EL1 上半部 RES0→RESERVED（Figure 3-85/3-88）；Description 分層明寫「暫存器介面 RW（Table 3-54）、產品內容無可寫資訊」（R5-04） | 審查轉錄 |
+| 39 | 本檔 | QEMU 佐證釘 commit `d2e570cc0f97b936902a5b1b86b73c0f5998b475`（qemu-project/qemu target/arm/tcg/cpu32.c 親驗），並標示該模型 MIDR=0x411fc153＝**r1p3**——僅作 r1p2 推導的交叉佐證，不取代 DDI 0460D（R5-05） | 親驗（pinned 原始碼） |
+| 40 | tests | 新增 R5R 鎖定測試 5 條＋改寫 AIDR 鎖與 A55 reset 例外清單（見 tests/test_specs_official.py） | — |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 
@@ -64,23 +71,25 @@ AIDR=0、CPACR=0、PMCR=0x41151800、FPSID=0x41023153、MVFR0=0x10110221、MVFR1
 **已知衝突（R3／R4 確認，不得直接回填）**：
 - ID_ISAR0 — Table 4-2 印 0x01101111（Divide=僅 Thumb），但 Table 4-15 明定 r1p0 起 ARM+Thumb
   皆有 SDIV/UDIV（Divide=0x2）→ r1p2 應推導 0x02101111。R4 檢索：公開 SDEN（ARM-EPM-012129 v3.0）
-  查無 Table 4-2 勘誤（審查轉錄）；QEMU cortex-r5 用推導值（qemu/qemu target/arm/tcg/cpu32.c 親驗）。
-  需硬體實測或新版 TRM 定案。
+  查無 Table 4-2 勘誤（審查轉錄）；QEMU cortex-r5 **r1p3** 模型用推導值（qemu-project/qemu
+  pin `d2e570cc0f97b936902a5b1b86b73c0f5998b475` target/arm/tcg/cpu32.c 親驗——r1p3 非 r1p2，
+  僅作交叉佐證）。需硬體實測或新版 TRM 定案。
 - ID_ISAR2 — Table 4-2 印 0x21232131（MemHint[7:4]=0x3＝僅 PLD/PLI，即 r0p0 值），但 Table 4-17
   明定 r1p0 起支援 PLDW→MemHint=0x4（0406C.d MemHint_instrs 編碼 0b0100＝加 PLDW，親驗）→ r1p2
-  應推導 0x21232141。QEMU cortex-r5（cpu32.c 親驗）與 sample_r5.bin 皆用推導值。R4 新發現，
-  與 ID_ISAR0 同型（Table 4-2 疑沿用 r0p0 讀值未隨版更新）。
+  應推導 0x21232141。QEMU cortex-r5 r1p3 模型（同上 pin `d2e570c`，親驗）與 sample_r5.bin
+  皆用推導值。R4 新發現，與 ID_ISAR0 同型（Table 4-2 疑沿用 r0p0 讀值未隨版更新）。
 
 ### R5 其他待辦
-- SCTLR 產品固定位（FI/RR/Z 的 SBO/無效行為）：親驗 Table 4-24 後把 Access/Reset 產品化
-- DFSR/IFSR 產品欄名（審查稱 bit12=SD、bit11=RW、bit10=S）：親驗 §4.3.20 後改名
+- ~~SCTLR 產品化~~ R5R 已依 Table 4-24 轉錄套用（決議 #34）——待原文親驗後升級 Verified
+- ~~DFSR/IFSR 產品欄名~~ R5R 已依 §4.3.20 轉錄套用（決議 #35）——待原文親驗後升級 Verified
 - TRM 專屬未收顆：Secondary ACTLR、TCM Selection（c9,c2,0，Xilinx 佐證存在）、Slave Port Control、
   Correctable Fault Location、Build Options、Pin Options、周邊介面區域暫存器——親驗後補收
 - R5 vs R5F 的 schema 級 requires:FPU 機制（見第四節）
 
 ### A55（審查轉錄的 Table 3-49 讀值——未寫入 spec）
 CTR_EL0=0x84448004、ID_AA64DFR0=0x…10305408、ID_AA64ISAR1=0x…00100001、ID_AA64MMFR0=0x…00101122、
-ID_AA64MMFR1=0x…10212122、ID_AA64MMFR2=0x…00001011、ID_AA64PFR1=0x…00000010、REVIDR=0、AIDR=0、CSSELR=0
+ID_AA64MMFR1=0x…10212122、ID_AA64MMFR2=0x…00001011、ID_AA64PFR1=0x…00000010、CSSELR=0
+（REVIDR=0、AIDR=0 已於 R5R 以轉錄層寫入 spec Reset——決議 #36/#37，親驗後升級）
 - MMFR0[63:24] 疑點已於 R4 釐清：A55 TRM Figure 3-127 確實把 [63:24] 整段併標 RES0（產品畫法，
   審查轉錄），同時 TGran4/TGran64 的架構編碼 0＝支援仍成立——spec 以雙層描述並存（決議 #28），結案。
 - EL2/EL3 暫存器群、PMU 直接視圖群、DSU 叢集暫存器（TF-A dsu_def.h 可為編碼憑據）：依需求擴充

@@ -749,23 +749,23 @@
 
 ## REVIDR_EL1
 - Offset: 0x0A0
-- Reset: -
-- Description: Revision ID Register — 實作特定小改版（errata 修補）資訊，須與 MIDR_EL1 一併解讀（MRS Rt,REVIDR_EL1）。2026-08 審查修正：舊版沿用了 ARMv7 REVIDR 的「未實作時讀值=MIDR」選配別名語意——AArch64 的 REVIDR_EL1 為必備暫存器，無此行為。審查轉錄：A55 r2p0 讀值 0x00000000（待 TRM 親驗）
+- Reset: 0x0000000000000000
+- Description: Revision ID Register — 實作特定小改版（errata 修補）資訊，須與 MIDR_EL1 一併解讀（MRS Rt,REVIDR_EL1）。2026-08 審查修正：舊版沿用了 ARMv7 REVIDR 的「未實作時讀值=MIDR」選配別名語意——AArch64 的 REVIDR_EL1 為必備暫存器，無此行為。2026-08 第五輪修正：上半部依 A55 TRM §3.2.92／Figure 3-160 標 Reserved（非 RES0——兩者不可在無架構佐證時互換）；Reset 0x0 依 Table 3-49（Type=RO、Reset=0x00000000）審查轉錄，待親驗
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RES0 | RO | 0 | 保留 |
-| 31:0 | REVIDR | RO | - | 實作定義（審查轉錄：r2p0 讀 0） |
+| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-160：Reserved，審查轉錄） |
+| 31:0 | REVIDR | RO | 0 | 實作定義；r2p0 reset/讀值 0（Table 3-49 審查轉錄） |
 
 ## AIDR_EL1
 - Offset: 0x0A8
-- Reset: -
-- Description: Auxiliary ID Register — Cortex-A55 未使用此暫存器（MRS Rt,AIDR_EL1）。2026-08 第四輪審查修正：舊版誤列整顆 [63:0] 實作定義——審查轉錄 A55 TRM §3.2.14／Figure 3-91：[63:32] 保留、[31:0] RES0，讀值恆 0（待親驗原文）
+- Reset: 0x0000000000000000
+- Description: Auxiliary ID Register — Cortex-A55 未使用此暫存器（MRS Rt,AIDR_EL1）。2026-08 第四輪審查修正：舊版誤列整顆 [63:0] 實作定義。2026-08 第五輪修正：上半部依 A55 TRM §3.2.14／Figure 3-91 標 Reserved（原文即 Reserved，非 RES0——僅下半部原文為 RES0）；Reset 0x0 依 Table 3-49（Type=RO、Reset=0x00000000）審查轉錄，待親驗
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RES0 | RO | 0 | 保留 |
-| 31:0 | RES0 | RO | 0 | Cortex-A55 未使用，讀 0（審查轉錄 §3.2.14，待親驗） |
+| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-91：Reserved，審查轉錄） |
+| 31:0 | RES0 | RO | 0 | Cortex-A55 未使用，讀 0（Figure 3-91：RES0，審查轉錄） |
 
 ## ID_AA64PFR1_EL1
 - Offset: 0x0B0
@@ -955,23 +955,23 @@
 - Offset: 0x0F0
 - Reset: -
 - Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR0_EL1（無切分的整顆暫存器）
-- Description: Auxiliary Fault Status Register 0 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW，與說明矛盾）；MRS Rt,AFSR0_EL1
+- Description: Auxiliary Fault Status Register 0 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW 內容，與說明矛盾）。存取分層（2026-08 第五輪釐清）：**暫存器指令介面為 RW**（MRS/MSR 皆可，Table 3-54 Type=RW 審查轉錄）——RW 的是介面，不是內容；產品內容無可用可寫資訊：[63:32] Reserved、[31:0] RES0（§3.2.8／Figure 3-85 轉錄）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RES0 | RO | 0 | 保留 |
-| 31:0 | RES0 | RO | 0 | A55：RES0（審查確認 TRM §3.2.8／§3.2.11） |
+| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-85：Reserved，審查轉錄；非 RES0） |
+| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-85 審查轉錄） |
 
 ## AFSR1_EL1
 - Offset: 0x0F8
 - Reset: -
 - Verified: Arm 機器可讀架構規格（rems-project/sail-arm arm-v9.4-a、src/v8_base.sail） register AFSR1_EL1（無切分的整顆暫存器）
-- Description: Auxiliary Fault Status Register 1 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW，與說明矛盾）；MRS Rt,AFSR1_EL1
+- Description: Auxiliary Fault Status Register 1 — 實作定義的故障補充資訊。Cortex-A55 未使用此暫存器（2026-08 審查修正：舊版表格誤列整顆 IMPDEF RW 內容，與說明矛盾）。存取分層（2026-08 第五輪釐清）：**暫存器指令介面為 RW**（MRS/MSR 皆可，Table 3-54 Type=RW 審查轉錄）——RW 的是介面，不是內容；產品內容無可用可寫資訊：[63:32] Reserved、[31:0] RES0（§3.2.11／Figure 3-88 轉錄）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RES0 | RO | 0 | 保留 |
-| 31:0 | RES0 | RO | 0 | A55：RES0（審查確認 TRM §3.2.8／§3.2.11） |
+| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-88：Reserved，審查轉錄；非 RES0） |
+| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-88 審查轉錄） |
 
 ## CONTEXTIDR_EL1
 - Offset: 0x100
