@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用；R12＝OpenAI Codex 第十二輪複驗；R12R＝2026-08-31 第十二輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用；R12＝OpenAI Codex 第十二輪複驗；R12R＝2026-08-31 第十二輪套用；R13＝OpenAI Codex 第十三輪複驗（**首輪帶官方 0460D 直接親驗**）；R13R＝2026-08-31 第十三輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R；#62–63＝R12R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R；#62–63＝R12R；#64–68＝R13R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -77,13 +77,21 @@
 | 59 | 本檔 | **AMENDED by #61**（master 僅作發現 URL——不可變重現來源改 commit/blob pin，見 #61）——我方 0406C.d 的 provenance 記錄（R10-03）：來源＝GitHub 鏡像 lisider/my_book（master）`Architecture/arm/armv7-cortex-ar/DDI0406C_d_armv7ar_arm.pdf`（2026-08-28 sparse checkout 取得；2026-08-30 重抓同 URL 雜湊相符）；18,620,001 bytes、SHA-256 `b6c60d1b04ce…e952a094`、PDF 1.7、2720 頁、封面 DDI 0406C.d／ID040418、creationDate 2018-04-04T19:05:24Z、modDate 2018-05-28+08:00、producer Acrobat Distiller 8.3.1。**信任分層**：鏡像位元組未經 arm.com 背書＝容器層低於官方下載；內容層主張迄今均經 Codex 官方建置（SHA-256 294668ae…）獨立覆核相符，僅憑我方副本成立的主張如有應個別標註待官方複驗 | 親驗（metadata＋重抓）＋鏡像 |
 | 60 | tests | **AMENDED by #62**（「fault 類別互斥」當時僅涵蓋中文 canonical token——英文官方術語（Alignment fault／Reserved encoding）可繞過；中英雙語 alias＋NFKC/casefold 正規化由 #62 補正）——active 分支補 **fault 類別互斥鎖**（R11-01）：以 allowlist token 依序剝離（非同步先於同步、殘文再驗防同類別重複）——每個 active 分支恰好解析出一個且等於預期的 fault 類別、禁「保留」；舊版只驗預期名存在，「背景＋對齊」「active 兼保留」四型變異都放行（DFSR/IFSR 都重現）。加永久負向測試（兩型×兩顆）；16 個真實 active 分支 dry-run 零誤傷 | — |
 | 61 | 本檔＋tests | 0406C.d 鏡像 provenance 釘 commit（R11-02）：commit `b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb`、blob `81171e821320cfbbe8c1ac0a6f544e3068a8ca96`（blob 以 git 演算法自本地檔重算相符）；commit-pinned raw URL 2026-08-30 實抓 SHA-256 仍為 `b6c60d1b…`（與 master URL、本地檔三方一致）。master 僅作發現 URL，不得作唯一可重現來源；加 provenance 鎖定測試。**R12-02 補全（本列自包含、一鍵可重現）**：完整 pinned URL＝`https://raw.githubusercontent.com/lisider/my_book/b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb/Architecture/arm/armv7-cortex-ar/DDI0406C_d_armv7ar_arm.pdf`、完整 SHA-256＝`b6c60d1b04ce04769f7a22abd71614251c783fcc410c7f1e9aa0cf19e952a094` | 親驗（blob 重算＋pinned 重抓） |
-| 62 | tests | active 排他鎖擴為**中英雙語 canonical alias**（R12-01）：8 類別×中英 alias 經 NFKC＋casefold 正規化、依長→短剝離至定點（計入全部出現次數）、命中一律映回中文 canonical；active 分支禁正規化後的「保留」與「reserved」。英文官方術語 mutation（Alignment fault／Reserved encoding，含大小寫變體）修正前放行（DFSR/IFSR 都重現）、修正後必敗（bilingual 負向測試永久化）；16 個真實分支 dry-run 零誤傷。**保證範圍明文＝canonical 中英術語排他，非任意同義詞的語意理解** | — |
+| 62 | tests | **AMENDED by #64**（「英文名取 DDI 0406C.d／0460D 表格用語」當時漏掉五個正式名——0460D Table 4-28 Sources 的 Alignment/Background/Permission 單字短名與 0406C.d 的 Memory access (a)synchronous parity error，10 個變異放行；#64 補全並改詞界線 regex）——active 排他鎖擴為**中英雙語 canonical alias**（R12-01）：8 類別×中英 alias 經 NFKC＋casefold 正規化、依長→短剝離至定點（計入全部出現次數）、命中一律映回中文 canonical；active 分支禁正規化後的「保留」與「reserved」。英文官方術語 mutation（Alignment fault／Reserved encoding，含大小寫變體）修正前放行（DFSR/IFSR 都重現）、修正後必敗（bilingual 負向測試永久化）；16 個真實分支 dry-run 零誤傷。**保證範圍明文＝canonical 中英術語排他，非任意同義詞的語意理解** | — |
 | 63 | 本檔＋tests | provenance 決議自包含化（R12-02）：#61 直接補入完整 commit-pinned raw URL 與完整 SHA-256；鎖定測試改名 test_arm_mirror_provenance_row61_is_self_contained_and_commit_pinned 並**定位 #61 列**逐項斷言（commit／blob／URL／SHA-256），不再全檔搜尋；#59→#61 AMENDED 斷言保留 | 慣例 |
+| 64 | tests | alias 補齊官方詞彙＋詞界線（R13-01）：0460D Table 4-28 Sources 單字短名（Alignment/Background/Permission）與 0406C.d 的 Memory access (a)synchronous parity error 入 alias（後者 2026-08-31 自本地 0406C.d B5-7/B5-8 頁面親驗）；比對改詞界線 regex（前後不得緊鄰 [a-z0-9]——backgrounded/realignments 不誤中、中文緊鄰英文仍抓到）；官方詞彙全量負向測試（19 詞×DFSR/IFSR＝38 變異，修正前其中 10 個放行）＋詞界線良性反證 | 親驗（0406C 詞彙）＋審查轉錄（0460D 詞彙） |
+| 65 | 本檔 | 官方文件通道狀態更新（R13-02）：Codex 2026-08-31 實測 developer.arm.com／documentation-service.arm.com 已可下載——DDI 0460D（download `https://documentation-service.arm.com/static/5f04288cdbdee951c1cd8969`、檔名 DDI0460D_cortex_r5_r1p2_trm.pdf、3,268,393 bytes、468 頁、SHA-256 `da00857f6e3d429354e8606bc1de2012782389dc3da0be829a19f0f680c2188b`）與 100442_0200_02_en（download `https://documentation-service.arm.com/static/649ac6d4df6cd61d528c2bf1`、4,680,444 bytes）——以上數值為 Codex 回報之審查轉錄。我方沙箱同日重試：代理對 documentation-service.arm.com／infocenter.arm.com CONNECT 回 403 host_not_allowed（出口 allowlist 政策，非 ARM 端問題）。**解鎖路徑：使用者將官方 PDF 放入 repo（或開放網域）即可親驗升級** | 審查轉錄＋親驗（我方 403 實測） |
+| 66 | cortex_r5 | ACTLR 依 Table 4-25 修正（R13-03，審查轉錄）：FRCDIS＝停用 fetch-rate control（舊「Fault 路徑組合邏輯」誤譯）、DNCH＝停用 AXI master 對 non-cacheable 的 data forwarding、FDSnS＝MPU 關閉時強制 D-side Normal Non-cacheable 為 Non-shared（舊 write-through 語意錯置）、sMOV＝divide 不亂序完成；[27:25] 收斂為 ECC 檢查致能（reset 依 PARECCENRAMm）；[18] 自 RES0/0 回退 RESERVED/`-`（僅 SBZ）；明文 reset 回填（[31:28]/[24:19]/[17]/[14:6] 各 0、BP=0b00、CEC=0b100）、[2:0] reset 依 ERRENRAMm | 審查轉錄（Table 4-25） |
+| 67 | cortex_r5 | ADFSR/AIFSR 依 Table 4-31/4-32 修正（R13-04，審查轉錄）：三段保留位（[31:28]/[19:14]/[4:0]）自 RES0/0 回退 RESERVED/`-`（僅 SBZ）；CacheWay/Index 補「僅 data cache store 同位/ECC 錯誤時有效」註腳、AIFSR.Index＝SBZ（舊版無條件解讀屬實質診斷錯誤）；兩顆補整體有效性（僅 DFSR/IFSR 回報同位/ECC 時內容有效）；Side/SideExt 補八組 SideExt:Side 組合表（0:00 Cache/AXIM…1:10 AHB 周邊埠） | 審查轉錄（Table 4-31/4-32） |
+| 68 | cortex_r5 | ATCMRR/BTCMRR 依 Table 4-43/4-44 修正（R13-05，審查轉錄）：[11:7]＝讀取不可預期＋寫入 SBZ（不得稱 RES0——與「讀為 0」語意衝突）；bit1 自 RES0/0 回退 RESERVED/`-`；Size 完整 enum（0＝無 TCM、3–14 級距含 **14=8MB**，未列值 1、2、15–31 保留）；Base reset 依 LOCZRAMAm（ATCM：=1 為 0／=0 實作定義；BTCM 相反）、En reset 依 INITRAMAm/Bm、未實作該 TCM 時 En 為 RAZ | 審查轉錄（Table 4-43/4-44） |
 
-## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
+## 二、待原文親驗後回填（官方 PDF 公網已可取得——見 #65）
 
-需要的文件：**DDI 0460D**（Cortex-R5 r1p2 TRM）、**100442_0200_02_en**（Cortex-A55 r2p0 TRM）、
-定版的 **N25/N45 datasheet 或 AndeStar V5 SPA**。取得後逐項親驗、把「審查轉錄」升級為 Verified 並回填下列值。
+文件狀態（2026-08-31）：**DDI 0460D** 與 **100442_0200_02_en** 的官方下載端點已恢復可達
+（Codex 實測，URL/雜湊見 #65）；我方沙箱出口政策仍擋 arm.com 系網域（403 host_not_allowed，
+同日重試實測）——**使用者將兩份官方 PDF 放入 repo 即可解鎖親驗**，屆時逐顆、逐表核對後把
+「審查轉錄」升級為 Verified 並回填下列值（不得批次升級）。**N25/N45 datasheet 或 AndeStar
+V5 SPA** 仍待取得。
 
 ### R5（審查轉錄的 Table 4-2 讀值——**未寫入 spec**，回填前逐項親驗）
 CTR=0x8003C003、TCMTR=0x00010001、ID_PFR0=0x00000131、ID_PFR1=0x00000001、ID_DFR0=0x00010400、
