@@ -9,6 +9,7 @@ RISC-V 部分的對照來源：官方 riscv/riscv-isa-manual，tag
 ratified）的 src/machine.tex。
 """
 
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -691,29 +692,51 @@ _FSR_FAR_EXPECT = {
 _FSR_RESERVED_SIDE = ((0b0000, 0), (0b0001, 0), (0b0010, 0),
                       (0b0110, 1), (0b1001, 1), (0b1101, 0))
 
-# active 分支的 fault 類別 allowlist（R11-01）：依序剝離——較長的「非同步…」
-# 必須先於「同步…」，剝離後殘文再驗一次防同類別重複
-_FSR_FAULT_TOKENS = (
-    "非同步同位/ECC",
-    "非同步外部中止",
-    "同步同位/ECC",
-    "同步外部中止",
-    "背景故障",
-    "對齊故障",
-    "除錯事件",
-    "權限故障",
-)
+# active 分支的 fault 類別 canonical→中英 alias（R11-01＋R12-01）：NFKC＋
+# casefold 正規化後依 alias 長→短剝離至定點（計入全部出現次數），命中一律
+# 映回中文 canonical——保證範圍＝canonical 中英術語排他，非任意同義詞的
+# 語意理解（英文名取 DDI 0406C.d／0460D 表格用語）
+_FSR_FAULT_ALIASES = {
+    "非同步同位/ECC": ("非同步同位/ECC", "Asynchronous parity or ECC error"),
+    "非同步外部中止": ("非同步外部中止", "Asynchronous external abort"),
+    "同步同位/ECC": ("同步同位/ECC", "Synchronous parity or ECC error"),
+    "同步外部中止": ("同步外部中止", "Synchronous external abort"),
+    "背景故障": ("背景故障", "Background fault"),
+    "對齊故障": ("對齊故障", "Alignment fault"),
+    "除錯事件": ("除錯事件", "Debug event"),
+    "權限故障": ("權限故障", "Permission fault"),
+}
 
 
-def _fsr_fault_tokens(branch):
-    """依序剝離 fault 類別 token，回傳 (出現清單, 剝離後殘文)。"""
-    remaining = branch
+def _norm(text):
+    """NFKC＋casefold 正規化（吃掉全形/半形與大小寫差異）。"""
+    return unicodedata.normalize("NFKC", text).casefold()
+
+
+# 展平成 (canonical, 正規化 alias)，長 alias 先掃——中英的「非同步/Asynchronous…」
+# 都必先於對應的「同步/Synchronous…」，子字串誤中不可能
+_FSR_FAULT_ALIAS_SCAN = sorted(
+    ((canonical, _norm(alias))
+     for canonical, aliases in _FSR_FAULT_ALIASES.items()
+     for alias in aliases),
+    key=lambda item: len(item[1]), reverse=True)
+
+
+def _fsr_fault_categories(branch):
+    """正規化後依 alias 長→短剝離至定點，回傳出現的 canonical 類別序列
+    （同類別出現幾次列幾次——重複也不放行）。"""
+    remaining = _norm(branch)
     found = []
-    for token in _FSR_FAULT_TOKENS:
-        if token in remaining:
-            found.append(token)
-            remaining = remaining.replace(token, "", 1)
-    return found, remaining
+    changed = True
+    while changed:
+        changed = False
+        for canonical, alias in _FSR_FAULT_ALIAS_SCAN:
+            if alias in remaining:
+                found.append(canonical)
+                remaining = remaining.replace(alias, "", 1)
+                changed = True
+                break
+    return found
 
 
 def _fsr_branch(label, s):
@@ -728,7 +751,8 @@ def _assert_fsr_far_semantics(enum, far, name):
     """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內；
     FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）；
     reserved 側必須恰為「S=n＝保留」，不得摻入其他語意（R10-01）；
-    active 分支的 fault 類別互斥——恰好一個且等於預期、禁「保留」（R11-01）。"""
+    active 分支以 canonical 中英術語 alias 驗 fault 類別排他——恰好一個且
+    等於預期、禁「保留」/Reserved（R11-01＋R12-01；非任意同義詞語意理解）。"""
     wrong_far = "IFAR" if far == "DFAR" else "DFAR"
     assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                          0b1000, 0b1001, 0b1101}, name
@@ -741,11 +765,11 @@ def _assert_fsr_far_semantics(enum, far, name):
     for full, (fault, far_kw) in _FSR_FAR_EXPECT.items():
         s, low = full >> 4, full & 0xF
         branch = _fsr_branch(enum[low], s)
-        found, residue = _fsr_fault_tokens(branch)
-        assert found == [fault], (name, f"{full:05b}", found, branch)
-        assert not any(t in residue for t in _FSR_FAULT_TOKENS), \
-            (name, f"{full:05b}", branch)  # 同類別重複也不放行
-        assert "保留" not in branch, (name, f"{full:05b}", branch)
+        assert _fsr_fault_categories(branch) == [fault], \
+            (name, f"{full:05b}", branch)
+        norm_branch = _norm(branch)
+        assert "保留" not in norm_branch and "reserved" not in norm_branch, \
+            (name, f"{full:05b}", branch)
         assert wrong_far not in branch, (name, f"{full:05b}", branch)
         if far_kw == "有效":
             assert f"{far} 有效" in branch, (name, f"{full:05b}", branch)
@@ -777,10 +801,11 @@ def test_r5_fault_status_and_far_semantics_match_table_4_28():
     （Valid／Unchanged／UNPREDICTABLE），單編碼列的另一側必須是保留；
     R9-01 補強：FAR 狀態必須帶正確的 FAR 名（DFAR/IFAR，錯名禁入）且
     三態互斥——同一分支不得同時宣稱兩種 FAR 狀態；R10-01 補強：reserved
-    側恰為「S=n＝保留」exact 鎖；R11-01 補強：active 分支以 allowlist
-    token 剝離驗 fault 類別互斥——恰好一個且等於預期（非同步先剝離，
-    子字串誤中隨之絕跡）、禁「保留」；Status label 禁 UNKNOWN；
-    Lockdown/coprocessor abort 不得出現。"""
+    側恰為「S=n＝保留」exact 鎖；R11-01＋R12-01 補強：active 分支以
+    canonical 中英術語 alias（NFKC＋casefold 正規化、長 alias 先剝離）驗
+    fault 類別排他——恰好一個且等於預期、禁「保留」/Reserved；保證範圍
+    是 canonical 術語排他，不是任意同義詞的語意理解；Status label 禁
+    UNKNOWN；Lockdown/coprocessor abort 不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
@@ -882,15 +907,47 @@ def test_r5_fault_status_check_rejects_active_branch_conflicts():
                 active_reserved, far, f"{name}-active-reserved")
 
 
-def test_arm_mirror_provenance_is_commit_pinned():
-    """R11-02 鎖定：0406C.d 鏡像 provenance 必須釘到 commit/blob——#59 標
-    AMENDED by #61，總帳需含 commit 與 blob SHA（master 僅作發現 URL，
-    不得作唯一可重現來源）。"""
+def test_r5_fault_status_check_rejects_bilingual_active_branch_conflicts():
+    """R12-01 的負向驗證：active 排他鎖必須同時擋中文與英文 canonical 術語
+    ——第二 fault（對齊故障／Alignment fault 含大小寫變體）與 Reserved
+    宣稱（保留／Reserved encoding／RESERVED）混入 active 分支都必須失敗；
+    舊版只認中文 token，英文四型全數放行。DFSR/IFSR 都覆蓋。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    extras = (
+        "，且同時為對齊故障",             # 中文第二 fault
+        ", but also Alignment fault",      # 英文第二 fault
+        ", but also alignment FAULT",      # 大小寫變體
+        "，但此分支同時保留",             # 中文 Reserved
+        ", but also a Reserved encoding",  # 英文 Reserved
+        ", RESERVED branch too",           # 大小寫變體
+    )
+    for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+        for extra in extras:
+            mutated = dict(status.enum)
+            mutated[0b0000] = mutated[0b0000].replace(
+                f"{far} 有效", f"{far} 有效{extra}")
+            assert mutated[0b0000] != status.enum[0b0000], (name, extra)
+            with pytest.raises(AssertionError):
+                _assert_fsr_far_semantics(mutated, far, f"{name}-bilingual")
+
+
+def test_arm_mirror_provenance_row61_is_self_contained_and_commit_pinned():
+    """R11-02＋R12-02 鎖定：0406C.d 鏡像 provenance 必須釘到 commit/blob，
+    且 #61 列**自包含**——完整 pinned URL 與完整 SHA-256 直接在列內，
+    斷言定位 #61 列本身而非全檔搜尋；#59 的 AMENDED by #61 標記一併鎖住。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     row59 = next(l for l in log.splitlines() if l.startswith("| 59 |"))
     assert "AMENDED" in row59 and "#61" in row59
-    assert "b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb" in log
-    assert "81171e821320cfbbe8c1ac0a6f544e3068a8ca96" in log
+    row61 = next(l for l in log.splitlines() if l.startswith("| 61 |"))
+    assert "b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb" in row61
+    assert "81171e821320cfbbe8c1ac0a6f544e3068a8ca96" in row61
+    assert ("https://raw.githubusercontent.com/lisider/my_book/"
+            "b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb/"
+            "Architecture/arm/armv7-cortex-ar/DDI0406C_d_armv7ar_arm.pdf"
+            ) in row61
+    assert ("b6c60d1b04ce04769f7a22abd71614251c783fcc410c7f1e9aa0cf19"
+            "e952a094") in row61
 
 
 def test_no_stale_r5_fault_field_references():
@@ -916,14 +973,15 @@ def test_review_log_superseded_decisions_are_marked():
     """R6-07＋R7-04＋R9-02＋R10-02 鎖定：被推翻的舊決議 #9/#15/#27 必須以
     SUPERSEDED 標記並指向新決議；僅部分修訂的列必須標 AMENDED——#34→#43、
     #50→#51（「逐項鎖八個 full S:Status」過度主張，R8-01 證）、#51→#54/#57
-    （「驗 fault/FAR」「另一側必為保留」過度主張，R9-01/R10-01 證）
+    （「驗 fault/FAR」「另一側必為保留」過度主張，R9-01/R10-01 證）、
+    #60→#62（「fault 類別互斥」僅涵蓋中文 token，R12-01 證）
     ——單獨擷取舊列時不得被當成現行狀態。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
     for num, amends in (("| 34 |", ("#43",)), ("| 50 |", ("#51",)),
-                        ("| 51 |", ("#54", "#57"))):
+                        ("| 51 |", ("#54", "#57")), ("| 60 |", ("#62",))):
         row = next(l for l in log.splitlines() if l.startswith(num))
         assert "AMENDED" in row, num
         for amend in amends:

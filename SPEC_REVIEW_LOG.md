@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用；R12＝OpenAI Codex 第十二輪複驗；R12R＝2026-08-31 第十二輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R；#62–63＝R12R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -75,8 +75,10 @@
 | 57 | tests | reserved 分支改 **exact 鎖**（R10-01）：單編碼列的另一側必須恰等於「S=n＝保留」——舊版僅驗「保留」子字串，「S=1＝保留，但同時聲稱背景故障（FAR 為 UNPREDICTABLE）」也放行（DFSR/IFSR 都重現）；加永久負向測試 reserved 側摻語意必敗 | — |
 | 58 | 本檔＋tests | #51 標 AMENDED by #54/#57（R10-02）：其「驗 fault/FAR」「另一側必為保留」相對當時實作屬過度主張，分別由 #54（R9-01）/#57（R10-01）補正；review-log 標記測試加 #51→#54/#57 斷言 | 自我一致性 |
 | 59 | 本檔 | **AMENDED by #61**（master 僅作發現 URL——不可變重現來源改 commit/blob pin，見 #61）——我方 0406C.d 的 provenance 記錄（R10-03）：來源＝GitHub 鏡像 lisider/my_book（master）`Architecture/arm/armv7-cortex-ar/DDI0406C_d_armv7ar_arm.pdf`（2026-08-28 sparse checkout 取得；2026-08-30 重抓同 URL 雜湊相符）；18,620,001 bytes、SHA-256 `b6c60d1b04ce…e952a094`、PDF 1.7、2720 頁、封面 DDI 0406C.d／ID040418、creationDate 2018-04-04T19:05:24Z、modDate 2018-05-28+08:00、producer Acrobat Distiller 8.3.1。**信任分層**：鏡像位元組未經 arm.com 背書＝容器層低於官方下載；內容層主張迄今均經 Codex 官方建置（SHA-256 294668ae…）獨立覆核相符，僅憑我方副本成立的主張如有應個別標註待官方複驗 | 親驗（metadata＋重抓）＋鏡像 |
-| 60 | tests | active 分支補 **fault 類別互斥鎖**（R11-01）：以 allowlist token 依序剝離（非同步先於同步、殘文再驗防同類別重複）——每個 active 分支恰好解析出一個且等於預期的 fault 類別、禁「保留」；舊版只驗預期名存在，「背景＋對齊」「active 兼保留」四型變異都放行（DFSR/IFSR 都重現）。加永久負向測試（兩型×兩顆）；16 個真實 active 分支 dry-run 零誤傷 | — |
-| 61 | 本檔＋tests | 0406C.d 鏡像 provenance 釘 commit（R11-02）：commit `b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb`、blob `81171e821320cfbbe8c1ac0a6f544e3068a8ca96`（blob 以 git 演算法自本地檔重算相符）；commit-pinned raw URL 2026-08-30 實抓 SHA-256 仍為 `b6c60d1b…`（與 master URL、本地檔三方一致）。master 僅作發現 URL，不得作唯一可重現來源；加 provenance 鎖定測試 | 親驗（blob 重算＋pinned 重抓） |
+| 60 | tests | **AMENDED by #62**（「fault 類別互斥」當時僅涵蓋中文 canonical token——英文官方術語（Alignment fault／Reserved encoding）可繞過；中英雙語 alias＋NFKC/casefold 正規化由 #62 補正）——active 分支補 **fault 類別互斥鎖**（R11-01）：以 allowlist token 依序剝離（非同步先於同步、殘文再驗防同類別重複）——每個 active 分支恰好解析出一個且等於預期的 fault 類別、禁「保留」；舊版只驗預期名存在，「背景＋對齊」「active 兼保留」四型變異都放行（DFSR/IFSR 都重現）。加永久負向測試（兩型×兩顆）；16 個真實 active 分支 dry-run 零誤傷 | — |
+| 61 | 本檔＋tests | 0406C.d 鏡像 provenance 釘 commit（R11-02）：commit `b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb`、blob `81171e821320cfbbe8c1ac0a6f544e3068a8ca96`（blob 以 git 演算法自本地檔重算相符）；commit-pinned raw URL 2026-08-30 實抓 SHA-256 仍為 `b6c60d1b…`（與 master URL、本地檔三方一致）。master 僅作發現 URL，不得作唯一可重現來源；加 provenance 鎖定測試。**R12-02 補全（本列自包含、一鍵可重現）**：完整 pinned URL＝`https://raw.githubusercontent.com/lisider/my_book/b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb/Architecture/arm/armv7-cortex-ar/DDI0406C_d_armv7ar_arm.pdf`、完整 SHA-256＝`b6c60d1b04ce04769f7a22abd71614251c783fcc410c7f1e9aa0cf19e952a094` | 親驗（blob 重算＋pinned 重抓） |
+| 62 | tests | active 排他鎖擴為**中英雙語 canonical alias**（R12-01）：8 類別×中英 alias 經 NFKC＋casefold 正規化、依長→短剝離至定點（計入全部出現次數）、命中一律映回中文 canonical；active 分支禁正規化後的「保留」與「reserved」。英文官方術語 mutation（Alignment fault／Reserved encoding，含大小寫變體）修正前放行（DFSR/IFSR 都重現）、修正後必敗（bilingual 負向測試永久化）；16 個真實分支 dry-run 零誤傷。**保證範圍明文＝canonical 中英術語排他，非任意同義詞的語意理解** | — |
+| 63 | 本檔＋tests | provenance 決議自包含化（R12-02）：#61 直接補入完整 commit-pinned raw URL 與完整 SHA-256；鎖定測試改名 test_arm_mirror_provenance_row61_is_self_contained_and_commit_pinned 並**定位 #61 列**逐項斷言（commit／blob／URL／SHA-256），不再全檔搜尋；#59→#61 AMENDED 斷言保留 | 慣例 |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 
