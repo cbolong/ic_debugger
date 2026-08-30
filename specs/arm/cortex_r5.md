@@ -748,7 +748,7 @@
 | 14 | RR | RW | 0 | cache 取代策略選擇（reset 0＝Table 4-24 明文，轉錄）。產品行為：無論此位為何，Cortex-R5 皆使用 random replacement——此位功能無效（Table 4-24 轉錄） |
 | 13 | V | RW | - | 例外向量基底位址選擇（reset 值＝VINITHIm 接腳，轉錄） |
 | 12 | I | RW | 0 | I-cache 全域致能（reset 0＝Table 4-24 明文；無 I-cache 組態時 SBZ，轉錄） |
-| 11 | Z | RO | - | 分支預測——產品標 SBO（轉錄；2026-08 第五輪修正：舊版誤標 RW）：R5 恆支援分支預測、此位寫入忽略，實際預測策略由 ACTLR 控制。Reset 維持 `-`：Figure B6-1 將此位標 †（可為 RO 實作定義值、否則 reset 0——親驗，無單一定值） |
+| 11 | Z | RO | - | 分支預測——產品標 SBO（轉錄；2026-08 第五輪修正：舊版誤標 RW）：R5 恆支援分支預測、此位寫入忽略，實際預測策略由 ACTLR 控制。Reset 維持 `-`：Figure B6-1 此位標 (†)——「可為 RO 且讀值 implementation-defined；否則 reset 0」（親驗），無單一定值可填 |
 | 10 | SW | RW | 0 | SWP/SWPB 指令致能（1 時以完整 bus lock 執行；reset 0＝Table 4-24 明文，轉錄） |
 | 9:7 | RESERVED | RO | 0 | 保留——產品表整段併標 SBZ（轉錄，不再拆出架構 B 欄）；架構層 [9:8] RAZ/SBZP、[7] B 恆 0（親驗）故讀 0 |
 | 6:3 | RESERVED | RO | 0b1111 | 保留——產品表整段併標 SBO（轉錄，不再拆出架構 CP15BEN 欄）；架構層 [6]/[4:3] RAO/SBOP、[5] CP15BEN 兩情形皆 1（有實作→reset 1、未實作→RAO/WI；0406C §B6.1 條文＋Figure B6-1 親驗） |
@@ -902,10 +902,10 @@
 ### Enum: Status
 - 0b0000: S=0＝背景故障（未命中任何 MPU 區域，DFAR 有效）／S=1＝保留
 - 0b0001: S=0＝對齊故障（DFAR 有效）／S=1＝保留
-- 0b0010: S=0＝watchpoint 除錯事件（v7 Debug 時 DFAR 為 UNKNOWN）／S=1＝保留
-- 0b0110: S=0＝保留／S=1＝非同步外部中止（DFAR 為 UNKNOWN）
-- 0b1000: S=0＝同步外部中止（DFAR 有效）／S=1＝非同步同位/ECC 錯誤（DFAR 為 UNKNOWN）
-- 0b1001: S=0＝保留／S=1＝同步同位/ECC 錯誤
+- 0b0010: S=0＝watchpoint 除錯事件（DFAR 保持原值——Table 4-28：Unchanged，轉錄）／S=1＝保留
+- 0b0110: S=0＝保留／S=1＝非同步外部中止（DFAR 為 UNPREDICTABLE——Table 4-28，轉錄）
+- 0b1000: S=0＝同步外部中止（DFAR 有效）／S=1＝非同步同位/ECC 錯誤（DFAR 為 UNPREDICTABLE——Table 4-28，轉錄）
+- 0b1001: S=0＝保留／S=1＝同步同位/ECC 錯誤（DFAR 有效——Table 4-28，轉錄）
 - 0b1101: S=0＝權限故障（MPU，DFAR 有效）／S=1＝保留
 
 ## IFSR
@@ -927,9 +927,9 @@
 ### Enum: Status
 - 0b0000: S=0＝背景故障（未命中任何 MPU 區域，IFAR 有效）／S=1＝保留
 - 0b0001: S=0＝對齊故障（IFAR 有效）／S=1＝保留
-- 0b0010: S=0＝產生 Prefetch Abort 的除錯事件（IFAR 為 UNKNOWN）／S=1＝保留
-- 0b0110: S=0＝保留／S=1＝非同步外部中止（Table 4-28 為 DFSR/IFSR 共用編碼表，轉錄；非同步中止時 IFAR 為 UNKNOWN——架構慣例）
-- 0b1000: S=0＝同步外部中止（IFAR 有效）／S=1＝非同步同位/ECC 錯誤（Table 4-28 轉錄）
+- 0b0010: S=0＝產生 Prefetch Abort 的除錯事件（IFAR 保持原值——Table 4-28：Unchanged，轉錄）／S=1＝保留
+- 0b0110: S=0＝保留／S=1＝非同步外部中止（IFAR 為 UNPREDICTABLE——Table 4-28 為 DFSR/IFSR 共用編碼表，轉錄）
+- 0b1000: S=0＝同步外部中止（IFAR 有效）／S=1＝非同步同位/ECC 錯誤（IFAR 為 UNPREDICTABLE——Table 4-28，轉錄）
 - 0b1001: S=0＝保留／S=1＝同步同位/ECC 錯誤（IFAR 有效）
 - 0b1101: S=0＝權限故障（MPU，IFAR 有效）／S=1＝保留
 

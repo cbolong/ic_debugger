@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記——單獨引用舊列前先看標記**
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -49,7 +49,7 @@
 | 31 | tools | sample_r5.bin FPSID 0x41023154→0x41023153（對齊 Table 11-7 轉錄值；舊值無出處，QEMU r5f 亦未定義 FPSID）（R4-06） | 審查轉錄 |
 | 32 | ci | auto-build 安裝 playwright＋chromium：3 條 bridge 測試 CI 不再 skip，CI 與本機跑同一套全量測試（R4-03） | 環境 |
 | 33 | 本檔＋SPEC_FORMAT | ID_ISAR2 自待回填清單改列 TRM 內部衝突（R4-02，見第二節）；SPEC_FORMAT 明定 Access＝硬體存取屬性 | 親驗（0406C MemHint 編碼＋QEMU cpu32.c）＋審查轉錄（Table 4-17） |
-| 34 | cortex_r5 | SCTLR 套用 Table 4-24 產品 overlay（R5-01）：AFE/TRE 具名、保留段依產品分組（[23:22]/[9:7]/[6:3]…）、FI/Z 改 RO（SBO）、RR 補明文 reset 0、IE/NMFI 明文 RO；**刪除無出處的「依 CFGBR 接腳」**；SBO/SBZ 玻璃屋定義（硬體忽略寫入＋軟體寫錯須預期 UNPREDICTABLE）0406C.d 親驗；Reset 只在架構 RAO/RAZ 親驗或 Table 4-24 明文時填 | 審查轉錄（§4.3.16／Table 4-24）＋親驗（0406C 玻璃屋與架構層讀值） |
+| 34 | cortex_r5 | **AMENDED by #43**（reset 證據規則後續增列 Figure B6-1 reset 圖明文一類）——SCTLR 套用 Table 4-24 產品 overlay（R5-01）：AFE/TRE 具名、保留段依產品分組（[23:22]/[9:7]/[6:3]…）、FI/Z 改 RO（SBO）、RR 補明文 reset 0、IE/NMFI 明文 RO；**刪除無出處的「依 CFGBR 接腳」**；SBO/SBZ 玻璃屋定義（硬體忽略寫入＋軟體寫錯須預期 UNPREDICTABLE）0406C.d 親驗；Reset 只在架構 RAO/RAZ 親驗或 Table 4-24 明文時填 | 審查轉錄（§4.3.16／Table 4-24）＋親驗（0406C 玻璃屋與架構層讀值） |
 | 35 | cortex_r5 | DFSR/IFSR 改產品欄名（R5-02）：ExT→SD、WnR→RW、FS[4]→S、FS[3:0]→Status，拆出 [9:8] 與 Domain[7:4]；DFSR[9:8] 明文 RAZ/WI 填 reset 0、IFSR[9:8] 無明文不填；SD 為 external abort 子分類、不併入 S:Status 主編碼 | 審查轉錄（§4.3.20／Figure 4-31/4-32／Table 4-28/4-29/4-30） |
 | 36 | cortex_a55 | AIDR_EL1 上半部 RES0→**RESERVED**（Figure 3-91 原文；更正決議 #27 的過度轉譯——Reserved 與 RES0 不可無佐證互換）；Reset 補 0x0（Table 3-49 Type=RO/Reset=0 轉錄）（R5-03） | 審查轉錄 |
 | 37 | cortex_a55 | REVIDR_EL1 上半部 RES0→RESERVED（Figure 3-160）；Reset 補 0x0（Table 3-49 轉錄）（R5-03） | 審查轉錄 |
@@ -63,6 +63,9 @@
 | 45 | cortex_r5 | DFAR/IFAR 的「見 DFSR.FS／IFSR.FS」失效引用改為 S:Status＋SD 分層說明（R6-05） | 自檔矛盾 |
 | 46 | cortex_r5＋本檔 | CFGBR 自 live spec 完全移除（R6-06 表態採納）：歷史只留本檔（#34 與本列）；A55/R5 檔頭補記 R5R/R6R 修正範圍、舊決議 #9/#15/#27 標 SUPERSEDED（R6-07） | 慣例決策 |
 | 47 | cortex_a55＋tools | REVIDR_EL1[31:0] 欄名改 IMPDEF（照 Figure 3-160 原圖標籤，R6-09）；sample 產生器的 SCTLR.Z 說明改歸因 ACTLR.BP（R6-08） | 審查轉錄＋慣例 |
+| 48 | cortex_r5 | DFSR/IFSR Status enum 的 FAR 狀態對齊 Table 4-28（R7-01）：Debug Event→FAR 保持原值（Unchanged）、非同步外部中止與非同步同位/ECC→UNPREDICTABLE、同步同位/ECC→有效；不再以 UNKNOWN 代替——UNKNOWN 是架構層 Table B5-7/B5-8 的用語（早輪親驗轉錄的來源），產品層以 Table 4-28 為準 | 審查轉錄（Table 4-28 FAR 欄） |
+| 49 | cortex_r5 | SCTLR.Z 的 Figure B6-1 footnote 記號修正：裸 †→**(†)**，並改寫為完整句（R7-03）。字元級 PDF 抽取對複合上標符號不可靠（本輪座標驗證：Z 格數字 0＝(†) 的 otherwise-reset、CP15BEN 格 (‡)＋數字 1 對照吻合），以完整圖例句為準 | 親驗（座標級複核） |
+| 50 | tests＋本檔 | R7-02/04/05：fault enum 測試改名 test_r5_fault_status_and_far_semantics_match_table_4_28 並逐項鎖八個 full S:Status＋FAR 狀態＋Status label 禁 UNKNOWN；superseded 測試加 #34 AMENDED 斷言；REVIDR 測試 docstring 改 IMPDEF | — |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 

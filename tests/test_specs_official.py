@@ -624,8 +624,9 @@ def test_r5_fault_status_uses_product_field_names():
 
 
 def test_a55_revidr_product_layout_and_reset():
-    """R5 審查修正鎖定（R5-03）：REVIDR_EL1 上半部依 Figure 3-160 為 RESERVED
-    （不是 RES0）、下半部 REVIDR；register reset=0（Table 3-49 審查轉錄）。"""
+    """R5-03＋R6-09 鎖定：REVIDR_EL1 上半部依 Figure 3-160 為 RESERVED
+    （不是 RES0）、下半部 IMPDEF（Figure 3-160 原圖標籤，非自命名）；
+    register reset=0（Table 3-49 審查轉錄）。"""
     revidr = _regs(_spec("arm/cortex_a55.md"))["REVIDR_EL1"]
     f = {(x.msb, x.lsb): x.name for x in revidr.fields}
     assert f == {(63, 32): "RESERVED", (31, 0): "IMPDEF"}  # R6-09：照 Figure 3-160 原圖標籤
@@ -658,7 +659,8 @@ def test_r5_qemu_evidence_is_commit_pinned():
 def test_r5_sctlr_product_resets_and_enums():
     """R6 審查修正鎖定（R6-01/R6-03）：SCTLR 的 FI/BR reset=0、[6:3]=0b1111
     （0406C.d Figure B6-1 逐位親驗＋CP15BEN 條文：實作→reset 1／未實作→RAO/WI）、
-    Z 維持未知（Figure B6-1 標 †：RO 實作定義或 reset 0）；FI/Z 不得再掛通用
+    Z 維持未知（Figure B6-1 標 (†)：可為 RO 且值 implementation-defined、
+    否則 reset 0）；FI/Z 不得再掛通用
     ARMv7 開關 enum（產品上此二位不控制功能）；RR enum 兩值都必須講
     random replacement、不得再出現 round-robin。"""
     sctlr = _regs(_spec("arm/cortex_r5.md"))["SCTLR"]
@@ -672,22 +674,35 @@ def test_r5_sctlr_product_resets_and_enums():
     assert "round-robin" not in (f["RR"].enum[0] + f["RR"].enum[1])
 
 
-def test_r5_fault_status_enums_match_table_4_28():
-    """R6 審查修正鎖定（R6-02）：DFSR/IFSR 的 Status enum 只准列 DDI 0460D
-    Table 4-28（DFSR/IFSR 共用編碼表）的八個 S:Status 產品編碼——00000/00001/
-    00010/10110/01000/11000/11001/01101。R5 上為 Reserved 的 Lockdown（10100）
-    與 coprocessor abort（11010）不得出現；兩檔都要含非同步外部中止與
-    同位/ECC 各項。"""
+def test_r5_fault_status_and_far_semantics_match_table_4_28():
+    """R6-02＋R7-01/R7-02 鎖定：DFSR/IFSR 的 Status enum 以 DDI 0460D
+    Table 4-28（DFSR/IFSR 共用）為準——**七個 low-Status rows 覆蓋八個
+    full S:Status 編碼**（01000 與 11000 共用低四位 1000，以 S 分支承載）。
+    逐項鎖 fault 名與 FAR 狀態：Valid（有效）／Unchanged（保持原值）／
+    UNPREDICTABLE；Status label 不得用 UNKNOWN 代替 Table 4-28 的
+    Unchanged/Unpredictable；R5 上為 Reserved 的 Lockdown/coprocessor abort
+    不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
-    for name in ("DFSR", "IFSR"):
+    for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
         assert set(status.enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                                     0b1000, 0b1001, 0b1101}, name
-        text = "".join(status.enum.values())
+        e = status.enum
+        # 八個 full S:Status × fault × FAR 狀態（Table 4-28）
+        assert "背景故障" in e[0b0000] and f"{far} 有效" in e[0b0000], name      # 00000 Valid
+        assert "對齊故障" in e[0b0001] and f"{far} 有效" in e[0b0001], name      # 00001 Valid
+        assert "除錯事件" in e[0b0010] and "保持原值" in e[0b0010] \
+            and "Unchanged" in e[0b0010], name                                   # 00010 Unchanged
+        assert "非同步外部中止" in e[0b0110] \
+            and "UNPREDICTABLE" in e[0b0110], name                               # 10110 Unpredictable
+        assert "同步外部中止" in e[0b1000] and f"{far} 有效" in e[0b1000], name  # 01000 Valid
+        assert "非同步同位/ECC" in e[0b1000] \
+            and e[0b1000].count("UNPREDICTABLE") == 1, name                      # 11000 Unpredictable
+        assert "同步同位/ECC" in e[0b1001] and f"{far} 有效" in e[0b1001], name  # 11001 Valid
+        assert "權限故障" in e[0b1101] and f"{far} 有效" in e[0b1101], name      # 01101 Valid
+        assert not any("UNKNOWN" in label for label in e.values()), name
+        text = "".join(e.values())
         assert "Lockdown" not in text and "coprocessor" not in text, name
-        assert "非同步外部中止" in status.enum[0b0110], name
-        assert "非同步同位/ECC" in status.enum[0b1000], name
-        assert "同步同位/ECC" in status.enum[0b1001], name
     # 整檔層級（與 R6 驗收 grep 同標準）：連否定式歷史註記都不留，歷史只在總帳
     text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
     assert "Lockdown" not in text and "coprocessor abort" not in text
@@ -713,12 +728,15 @@ def test_spec_headers_match_current_product_overlays():
 
 
 def test_review_log_superseded_decisions_are_marked():
-    """R6 審查修正鎖定（R6-07）：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED
-    開頭標記並指向新決議，避免單獨擷取舊列時被當成現行狀態。"""
+    """R6-07＋R7-04 鎖定：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED 標記
+    並指向新決議；僅部分修訂的 #34 必須標 AMENDED by #43——單獨擷取舊列時
+    不得被當成現行狀態。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
+    row34 = next(l for l in log.splitlines() if l.startswith("| 34 |"))
+    assert "AMENDED" in row34 and "#43" in row34
 
 
 def test_sample_r5_branch_prediction_is_attributed_to_actlr():
