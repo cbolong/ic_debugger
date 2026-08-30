@@ -882,7 +882,7 @@
 ## DFSR
 - Offset: 0x06C
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「DFSR, Data Fault Status Register, PMSA」— 位元位置依官方逐欄核對＋Table B5-8（PMSAv7 encodings）；產品欄名（SD/RW/S/Domain/Status）與 [9:4] 拆分依 DDI 0460D §4.3.20 Figure 4-31／Table 4-29 審查轉錄（尚未親驗原文）
+- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「DFSR, Data Fault Status Register, PMSA」— 位元位置依官方逐欄核對＋Table B5-8（PMSAv7 encodings）基線。**Verified 邊界**：本聲明僅涵蓋架構層位元位置與 B5-8 基線；現行 Status enum 的編碼集合與 FAR 狀態、產品欄名（SD/RW/S/Domain/Status）與 [9:4] 拆分皆採 DDI 0460D §4.3.20（Table 4-28/4-29）審查轉錄，**不在本 Verified 範圍內**（尚未親驗原文）
 - Description: Data Fault Status Register — 最近一次資料中止的狀態（與 DFAR 搭配）。官方屬性為 32-bit RW 暫存器（軟體可寫回，供 context save/restore；2026-08 審查修正：舊版誤標 RO）；MRC/MCR p15,0,Rt,c5,c0,0。2026-08 第五輪套用產品欄名：架構欄名 ExT/WnR/FS[4]/FS[3:0] 依 Table 4-29 改為 SD/RW/S/Status，並拆出 [9:8] 與 Domain[7:4]
 
 | Bits  | Field | Access | Reset | Description |
@@ -911,7 +911,7 @@
 ## IFSR
 - Offset: 0x070
 - Reset: -
-- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「IFSR, Instruction Fault Status Register, PMSA」— 位元位置依官方逐欄核對＋Table B5-7（PMSAv7 encodings）；產品欄名（SD/S/Domain/Status）與 [9:4] 拆分依 DDI 0460D §4.3.20 Figure 4-32／Table 4-30 審查轉錄（尚未親驗原文）
+- Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「IFSR, Instruction Fault Status Register, PMSA」— 位元位置依官方逐欄核對＋Table B5-7（PMSAv7 encodings）基線。**Verified 邊界**：本聲明僅涵蓋架構層位元位置與 B5-7 基線（B5-7 未列非同步編碼）；現行 Status enum 的編碼集合與 FAR 狀態、產品欄名（SD/S/Domain/Status）與 [9:4] 拆分皆採 DDI 0460D §4.3.20（Table 4-28/4-30）審查轉錄，**不在本 Verified 範圍內**（尚未親驗原文）
 - Description: Instruction Fault Status Register — 最近一次 Prefetch Abort 的狀態（與 IFAR 搭配）。官方屬性為 32-bit RW 暫存器（2026-08 審查修正：舊版誤標 RO）；MRC/MCR p15,0,Rt,c5,c0,1。2026-08 第五輪套用產品欄名：架構欄名 ExT/FS[4]/FS[3:0] 依 Table 4-30 改為 SD/S/Status，並拆出 [9:8] 與 Domain[7:4]
 
 | Bits  | Field | Access | Reset | Description |

@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -63,9 +63,12 @@
 | 45 | cortex_r5 | DFAR/IFAR 的「見 DFSR.FS／IFSR.FS」失效引用改為 S:Status＋SD 分層說明（R6-05） | 自檔矛盾 |
 | 46 | cortex_r5＋本檔 | CFGBR 自 live spec 完全移除（R6-06 表態採納）：歷史只留本檔（#34 與本列）；A55/R5 檔頭補記 R5R/R6R 修正範圍、舊決議 #9/#15/#27 標 SUPERSEDED（R6-07） | 慣例決策 |
 | 47 | cortex_a55＋tools | REVIDR_EL1[31:0] 欄名改 IMPDEF（照 Figure 3-160 原圖標籤，R6-09）；sample 產生器的 SCTLR.Z 說明改歸因 ACTLR.BP（R6-08） | 審查轉錄＋慣例 |
-| 48 | cortex_r5 | DFSR/IFSR Status enum 的 FAR 狀態對齊 Table 4-28（R7-01）：Debug Event→FAR 保持原值（Unchanged）、非同步外部中止與非同步同位/ECC→UNPREDICTABLE、同步同位/ECC→有效；不再以 UNKNOWN 代替——UNKNOWN 是架構層 Table B5-7/B5-8 的用語（早輪親驗轉錄的來源），產品層以 Table 4-28 為準 | 審查轉錄（Table 4-28 FAR 欄） |
+| 48 | cortex_r5 | DFSR/IFSR Status enum 的 FAR 狀態對齊 Table 4-28（R7-01；來源敘述經 R8-02 精修）：Debug Event→FAR 保持原值（Unchanged）、非同步外部中止與非同步同位/ECC→UNPREDICTABLE、同步同位/ECC→有效。舊 UNKNOWN 的架構層**直接**來源只涵蓋：DFSR 的 debug／非同步外部中止／非同步 parity（Table B5-8 明文 UNKNOWN）與 IFSR 的 debug event（Table B5-7 明文 UNKNOWN）——**IFSR 的 10110/11000 不在 Table B5-7**（該表未列即 Reserved；2026-08-30 親驗 B5-7/B5-8 原文確認），舊版對其套 UNKNOWN 屬未標示的推論。本輪起產品層一律以 Table 4-28 為準 | 審查轉錄（Table 4-28 FAR 欄）＋親驗（B5-7/B5-8 涵蓋範圍） |
 | 49 | cortex_r5 | SCTLR.Z 的 Figure B6-1 footnote 記號修正：裸 †→**(†)**，並改寫為完整句（R7-03）。字元級 PDF 抽取對複合上標符號不可靠（本輪座標驗證：Z 格數字 0＝(†) 的 otherwise-reset、CP15BEN 格 (‡)＋數字 1 對照吻合），以完整圖例句為準 | 親驗（座標級複核） |
 | 50 | tests＋本檔 | R7-02/04/05：fault enum 測試改名 test_r5_fault_status_and_far_semantics_match_table_4_28 並逐項鎖八個 full S:Status＋FAR 狀態＋Status label 禁 UNKNOWN；superseded 測試加 #34 AMENDED 斷言；REVIDR 測試 docstring 改 IMPDEF | — |
+| 51 | tests | fault 測試改 **S 分支歸屬鎖**（R8-01）：檢查器逐 full encoding 先切出 S=n 分支再驗 fault/FAR、同步項禁「非同步」子字串誤中、單編碼列的另一側必為保留；另加負向測試——把真實 enum 的 S=0/S=1 整組對調後檢查器必須失敗 | — |
+| 52 | 本檔 | #48 來源敘述精修（R8-02）：分開 DFSR（B5-8 明文）／IFSR debug（B5-7 明文）／IFSR 10110/11000（B5-7 未列＝Reserved，舊 UNKNOWN 屬推論）三種來源——B5-7/B5-8 涵蓋範圍本輪親驗 | 親驗 |
+| 53 | 本檔＋cortex_r5 | 檔頭輪次補 R7/R7R/R8/R8R（R8-03）；DFSR/IFSR 的 Verified 邊界明文——Verified 僅涵蓋架構層位置與 B5-7/B5-8 基線，現行 Table 4-28 產品 enum 不在其內（R8-04） | 慣例 |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 

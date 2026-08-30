@@ -674,38 +674,86 @@ def test_r5_sctlr_product_resets_and_enums():
     assert "round-robin" not in (f["RR"].enum[0] + f["RR"].enum[1])
 
 
+# ── DFSR/IFSR 的 Table 4-28 語意檢查器（R8-01：S 分支歸屬鎖）────────────
+# full S:Status → (fault 名, FAR 狀態關鍵字)；「有效」列另禁「非同步」子字串誤中
+_FSR_FAR_EXPECT = {
+    0b00000: ("背景故障", "有效"),
+    0b00001: ("對齊故障", "有效"),
+    0b00010: ("除錯事件", "保持原值"),
+    0b10110: ("非同步外部中止", "UNPREDICTABLE"),
+    0b01000: ("同步外部中止", "有效"),
+    0b11000: ("非同步同位/ECC", "UNPREDICTABLE"),
+    0b11001: ("同步同位/ECC", "有效"),
+    0b01101: ("權限故障", "有效"),
+}
+# 只承載單一 full encoding 的 low-Status 列：另一側分支必須是保留
+_FSR_RESERVED_SIDE = ((0b0000, 0), (0b0001, 0), (0b0010, 0),
+                      (0b0110, 1), (0b1001, 1), (0b1101, 0))
+
+
+def _fsr_branch(label, s):
+    """自「S=0＝…／S=1＝…」標籤取出指定 S 分支（找不到即斷言失敗）。"""
+    prefix = f"S={s}＝"
+    part = next((p for p in label.split("／") if p.startswith(prefix)), None)
+    assert part is not None, (label, s)
+    return part
+
+
+def _assert_fsr_far_semantics(enum, far, name):
+    """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內。"""
+    assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
+                         0b1000, 0b1001, 0b1101}, name
+    for full, (fault, far_kw) in _FSR_FAR_EXPECT.items():
+        s, low = full >> 4, full & 0xF
+        branch = _fsr_branch(enum[low], s)
+        assert fault in branch, (name, f"{full:05b}", branch)
+        if fault.startswith("同步"):  # 防「同步…」被「非同步…」子字串誤中
+            assert "非同步" not in branch, (name, f"{full:05b}", branch)
+        if far_kw == "有效":
+            assert f"{far} 有效" in branch, (name, f"{full:05b}", branch)
+        elif far_kw == "保持原值":
+            assert "保持原值" in branch and "Unchanged" in branch, \
+                (name, f"{full:05b}", branch)
+        else:
+            assert "UNPREDICTABLE" in branch, (name, f"{full:05b}", branch)
+    for low, s_used in _FSR_RESERVED_SIDE:
+        other = _fsr_branch(enum[low], 1 - s_used)
+        assert "保留" in other, (name, f"{low:04b}", other)
+    for label in enum.values():
+        assert "UNKNOWN" not in label, (name, label)
+    text = "".join(enum.values())
+    assert "Lockdown" not in text and "coprocessor" not in text, name
+
+
 def test_r5_fault_status_and_far_semantics_match_table_4_28():
-    """R6-02＋R7-01/R7-02 鎖定：DFSR/IFSR 的 Status enum 以 DDI 0460D
-    Table 4-28（DFSR/IFSR 共用）為準——**七個 low-Status rows 覆蓋八個
+    """R6-02＋R7-01/02＋R8-01 鎖定：DFSR/IFSR 的 Status enum 以 DDI 0460D
+    Table 4-28（DFSR/IFSR 共用）為準——**七個 low-Status rows 承載八個
     full S:Status 編碼**（01000 與 11000 共用低四位 1000，以 S 分支承載）。
-    逐項鎖 fault 名與 FAR 狀態：Valid（有效）／Unchanged（保持原值）／
-    UNPREDICTABLE；Status label 不得用 UNKNOWN 代替 Table 4-28 的
-    Unchanged/Unpredictable；R5 上為 Reserved 的 Lockdown/coprocessor abort
-    不得出現。"""
+    檢查器逐 full encoding 先切出 S=n 分支再驗 fault 名與 FAR 狀態
+    （Valid／Unchanged／UNPREDICTABLE），同步項禁「非同步」子字串誤中，
+    單編碼列的另一側必須是保留；Status label 禁 UNKNOWN；Lockdown/
+    coprocessor abort 不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
-        assert set(status.enum) == {0b0000, 0b0001, 0b0010, 0b0110,
-                                    0b1000, 0b1001, 0b1101}, name
-        e = status.enum
-        # 八個 full S:Status × fault × FAR 狀態（Table 4-28）
-        assert "背景故障" in e[0b0000] and f"{far} 有效" in e[0b0000], name      # 00000 Valid
-        assert "對齊故障" in e[0b0001] and f"{far} 有效" in e[0b0001], name      # 00001 Valid
-        assert "除錯事件" in e[0b0010] and "保持原值" in e[0b0010] \
-            and "Unchanged" in e[0b0010], name                                   # 00010 Unchanged
-        assert "非同步外部中止" in e[0b0110] \
-            and "UNPREDICTABLE" in e[0b0110], name                               # 10110 Unpredictable
-        assert "同步外部中止" in e[0b1000] and f"{far} 有效" in e[0b1000], name  # 01000 Valid
-        assert "非同步同位/ECC" in e[0b1000] \
-            and e[0b1000].count("UNPREDICTABLE") == 1, name                      # 11000 Unpredictable
-        assert "同步同位/ECC" in e[0b1001] and f"{far} 有效" in e[0b1001], name  # 11001 Valid
-        assert "權限故障" in e[0b1101] and f"{far} 有效" in e[0b1101], name      # 01101 Valid
-        assert not any("UNKNOWN" in label for label in e.values()), name
-        text = "".join(e.values())
-        assert "Lockdown" not in text and "coprocessor" not in text, name
+        _assert_fsr_far_semantics(status.enum, far, name)
     # 整檔層級（與 R6 驗收 grep 同標準）：連否定式歷史註記都不留，歷史只在總帳
     text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
     assert "Lockdown" not in text and "coprocessor abort" not in text
+
+
+def test_r5_fault_status_check_rejects_swapped_s_branches():
+    """R8-01 的負向驗證：把真實 DFSR enum 的 S=0/S=1 分支整組對調後，
+    檢查器必須失敗——證明鎖的是 S 分支歸屬，不是整列 substring
+    （舊版檢查對調後仍會通過，正是 R8 抓到的缺口）。"""
+    status = next(x for x in _regs(_spec("arm/cortex_r5.md"))["DFSR"].fields
+                  if x.name == "Status")
+    swapped = {}
+    for k, label in status.enum.items():
+        a, b = label.split("／")
+        swapped[k] = "S=0＝" + b.split("＝", 1)[1] + "／S=1＝" + a.split("＝", 1)[1]
+    with pytest.raises(AssertionError):
+        _assert_fsr_far_semantics(swapped, "DFAR", "DFSR-swapped")
 
 
 def test_no_stale_r5_fault_field_references():
