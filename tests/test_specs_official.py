@@ -691,6 +691,30 @@ _FSR_FAR_EXPECT = {
 _FSR_RESERVED_SIDE = ((0b0000, 0), (0b0001, 0), (0b0010, 0),
                       (0b0110, 1), (0b1001, 1), (0b1101, 0))
 
+# active 分支的 fault 類別 allowlist（R11-01）：依序剝離——較長的「非同步…」
+# 必須先於「同步…」，剝離後殘文再驗一次防同類別重複
+_FSR_FAULT_TOKENS = (
+    "非同步同位/ECC",
+    "非同步外部中止",
+    "同步同位/ECC",
+    "同步外部中止",
+    "背景故障",
+    "對齊故障",
+    "除錯事件",
+    "權限故障",
+)
+
+
+def _fsr_fault_tokens(branch):
+    """依序剝離 fault 類別 token，回傳 (出現清單, 剝離後殘文)。"""
+    remaining = branch
+    found = []
+    for token in _FSR_FAULT_TOKENS:
+        if token in remaining:
+            found.append(token)
+            remaining = remaining.replace(token, "", 1)
+    return found, remaining
+
 
 def _fsr_branch(label, s):
     """自「S=0＝…／S=1＝…」標籤取出指定 S 分支（找不到即斷言失敗）。"""
@@ -703,7 +727,8 @@ def _fsr_branch(label, s):
 def _assert_fsr_far_semantics(enum, far, name):
     """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內；
     FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）；
-    reserved 側必須恰為「S=n＝保留」，不得摻入其他語意（R10-01）。"""
+    reserved 側必須恰為「S=n＝保留」，不得摻入其他語意（R10-01）；
+    active 分支的 fault 類別互斥——恰好一個且等於預期、禁「保留」（R11-01）。"""
     wrong_far = "IFAR" if far == "DFAR" else "DFAR"
     assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                          0b1000, 0b1001, 0b1101}, name
@@ -716,9 +741,11 @@ def _assert_fsr_far_semantics(enum, far, name):
     for full, (fault, far_kw) in _FSR_FAR_EXPECT.items():
         s, low = full >> 4, full & 0xF
         branch = _fsr_branch(enum[low], s)
-        assert fault in branch, (name, f"{full:05b}", branch)
-        if fault.startswith("同步"):  # 防「同步…」被「非同步…」子字串誤中
-            assert "非同步" not in branch, (name, f"{full:05b}", branch)
+        found, residue = _fsr_fault_tokens(branch)
+        assert found == [fault], (name, f"{full:05b}", found, branch)
+        assert not any(t in residue for t in _FSR_FAULT_TOKENS), \
+            (name, f"{full:05b}", branch)  # 同類別重複也不放行
+        assert "保留" not in branch, (name, f"{full:05b}", branch)
         assert wrong_far not in branch, (name, f"{full:05b}", branch)
         if far_kw == "有效":
             assert f"{far} 有效" in branch, (name, f"{full:05b}", branch)
@@ -747,11 +774,13 @@ def test_r5_fault_status_and_far_semantics_match_table_4_28():
     Table 4-28（DFSR/IFSR 共用）為準——**七個 low-Status rows 承載八個
     full S:Status 編碼**（01000 與 11000 共用低四位 1000，以 S 分支承載）。
     檢查器逐 full encoding 先切出 S=n 分支再驗 fault 名與 FAR 狀態
-    （Valid／Unchanged／UNPREDICTABLE），同步項禁「非同步」子字串誤中，
-    單編碼列的另一側必須是保留；R9-01 補強：FAR 狀態必須帶正確的
-    FAR 名（DFAR/IFAR，錯名禁入）且三態互斥——同一分支不得同時宣稱
-    兩種 FAR 狀態；R10-01 補強：reserved 側恰為「S=n＝保留」exact 鎖；
-    Status label 禁 UNKNOWN；Lockdown/coprocessor abort 不得出現。"""
+    （Valid／Unchanged／UNPREDICTABLE），單編碼列的另一側必須是保留；
+    R9-01 補強：FAR 狀態必須帶正確的 FAR 名（DFAR/IFAR，錯名禁入）且
+    三態互斥——同一分支不得同時宣稱兩種 FAR 狀態；R10-01 補強：reserved
+    側恰為「S=n＝保留」exact 鎖；R11-01 補強：active 分支以 allowlist
+    token 剝離驗 fault 類別互斥——恰好一個且等於預期（非同步先剝離，
+    子字串誤中隨之絕跡）、禁「保留」；Status label 禁 UNKNOWN；
+    Lockdown/coprocessor abort 不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
@@ -826,6 +855,42 @@ def test_r5_fault_status_check_rejects_reserved_branch_with_extra_semantics():
         assert mutated[0b0000] != status.enum[0b0000], name
         with pytest.raises(AssertionError):
             _assert_fsr_far_semantics(mutated, far, f"{name}-reserved-extra")
+
+
+def test_r5_fault_status_check_rejects_active_branch_conflicts():
+    """R11-01 的負向驗證：active 分支的 fault 類別必須互斥——同一 full
+    encoding 同時宣稱第二種 fault（背景＋對齊）或同時宣稱「保留」都必須
+    失敗；舊版只驗預期 fault 名存在，這四個變異全數放行。DFSR/IFSR 都覆蓋。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+
+        second_fault = dict(status.enum)
+        second_fault[0b0000] = second_fault[0b0000].replace(
+            f"{far} 有效", f"{far} 有效，且同時為對齊故障")
+        assert second_fault[0b0000] != status.enum[0b0000], name
+        with pytest.raises(AssertionError):
+            _assert_fsr_far_semantics(
+                second_fault, far, f"{name}-active-second-fault")
+
+        active_reserved = dict(status.enum)
+        active_reserved[0b0000] = active_reserved[0b0000].replace(
+            f"{far} 有效", f"{far} 有效，但此分支同時保留")
+        assert active_reserved[0b0000] != status.enum[0b0000], name
+        with pytest.raises(AssertionError):
+            _assert_fsr_far_semantics(
+                active_reserved, far, f"{name}-active-reserved")
+
+
+def test_arm_mirror_provenance_is_commit_pinned():
+    """R11-02 鎖定：0406C.d 鏡像 provenance 必須釘到 commit/blob——#59 標
+    AMENDED by #61，總帳需含 commit 與 blob SHA（master 僅作發現 URL，
+    不得作唯一可重現來源）。"""
+    log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
+    row59 = next(l for l in log.splitlines() if l.startswith("| 59 |"))
+    assert "AMENDED" in row59 and "#61" in row59
+    assert "b7eccdd03f6442d9d4597a89e70fa8f8fb7167cb" in log
+    assert "81171e821320cfbbe8c1ac0a6f544e3068a8ca96" in log
 
 
 def test_no_stale_r5_fault_field_references():
