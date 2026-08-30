@@ -9,6 +9,7 @@ RISC-V 部分的對照來源：官方 riscv/riscv-isa-manual，tag
 ratified）的 src/machine.tex。
 """
 
+import re
 import unicodedata
 from pathlib import Path
 
@@ -692,19 +693,23 @@ _FSR_FAR_EXPECT = {
 _FSR_RESERVED_SIDE = ((0b0000, 0), (0b0001, 0), (0b0010, 0),
                       (0b0110, 1), (0b1001, 1), (0b1101, 0))
 
-# active 分支的 fault 類別 canonical→中英 alias（R11-01＋R12-01）：NFKC＋
-# casefold 正規化後依 alias 長→短剝離至定點（計入全部出現次數），命中一律
-# 映回中文 canonical——保證範圍＝canonical 中英術語排他，非任意同義詞的
-# 語意理解（英文名取 DDI 0406C.d／0460D 表格用語）
+# active 分支的 fault 類別 canonical→中英 alias（R11-01＋R12-01＋R13-01）：
+# NFKC＋casefold 正規化後依 alias 長→短剝離至定點（計入全部出現次數），
+# 命中一律映回中文 canonical。alias 涵蓋三個詞彙層：中文 canonical、
+# 0406C.d B5-7/B5-8 架構名（含 Memory access … parity error）、0460D
+# Table 4-28 Sources 產品短名（Alignment/Background/Permission 等單字）。
+# 保證範圍＝這些 canonical 中英術語排他，非任意同義詞的語意理解
 _FSR_FAULT_ALIASES = {
-    "非同步同位/ECC": ("非同步同位/ECC", "Asynchronous parity or ECC error"),
+    "非同步同位/ECC": ("非同步同位/ECC", "Asynchronous parity or ECC error",
+                       "Memory access asynchronous parity error"),
     "非同步外部中止": ("非同步外部中止", "Asynchronous external abort"),
-    "同步同位/ECC": ("同步同位/ECC", "Synchronous parity or ECC error"),
+    "同步同位/ECC": ("同步同位/ECC", "Synchronous parity or ECC error",
+                     "Memory access synchronous parity error"),
     "同步外部中止": ("同步外部中止", "Synchronous external abort"),
-    "背景故障": ("背景故障", "Background fault"),
-    "對齊故障": ("對齊故障", "Alignment fault"),
+    "背景故障": ("背景故障", "Background fault", "Background"),
+    "對齊故障": ("對齊故障", "Alignment fault", "Alignment"),
     "除錯事件": ("除錯事件", "Debug event"),
-    "權限故障": ("權限故障", "Permission fault"),
+    "權限故障": ("權限故障", "Permission fault", "Permission"),
 }
 
 
@@ -713,13 +718,17 @@ def _norm(text):
     return unicodedata.normalize("NFKC", text).casefold()
 
 
-# 展平成 (canonical, 正規化 alias)，長 alias 先掃——中英的「非同步/Asynchronous…」
-# 都必先於對應的「同步/Synchronous…」，子字串誤中不可能
-_FSR_FAULT_ALIAS_SCAN = sorted(
-    ((canonical, _norm(alias))
-     for canonical, aliases in _FSR_FAULT_ALIASES.items()
-     for alias in aliases),
-    key=lambda item: len(item[1]), reverse=True)
+# 展平成 (canonical, 詞界線 regex)，長 alias 先掃——中英的「非同步/Asynchronous…」
+# 都必先於對應的「同步/Synchronous…」、「… fault」必先於單字短名。詞界線用
+# ASCII lookaround（前後不得緊鄰 [a-z0-9]）：backgrounded／realignments 這類
+# 較長無關單字不誤中，而中文緊鄰英文（如「有效Alignment」）仍抓得到
+_FSR_FAULT_ALIAS_RES = [
+    (canonical, re.compile(
+        r"(?<![a-z0-9])" + re.escape(_norm(alias)) + r"(?![a-z0-9])"))
+    for canonical, alias in sorted(
+        ((c, a) for c, aliases in _FSR_FAULT_ALIASES.items()
+         for a in aliases),
+        key=lambda item: len(_norm(item[1])), reverse=True)]
 
 
 def _fsr_fault_categories(branch):
@@ -730,10 +739,11 @@ def _fsr_fault_categories(branch):
     changed = True
     while changed:
         changed = False
-        for canonical, alias in _FSR_FAULT_ALIAS_SCAN:
-            if alias in remaining:
+        for canonical, pattern in _FSR_FAULT_ALIAS_RES:
+            m = pattern.search(remaining)
+            if m:
                 found.append(canonical)
-                remaining = remaining.replace(alias, "", 1)
+                remaining = remaining[:m.start()] + remaining[m.end():]
                 changed = True
                 break
     return found
@@ -751,8 +761,9 @@ def _assert_fsr_far_semantics(enum, far, name):
     """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內；
     FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）；
     reserved 側必須恰為「S=n＝保留」，不得摻入其他語意（R10-01）；
-    active 分支以 canonical 中英術語 alias 驗 fault 類別排他——恰好一個且
-    等於預期、禁「保留」/Reserved（R11-01＋R12-01；非任意同義詞語意理解）。"""
+    active 分支以 canonical 中英術語 alias（詞界線 regex）驗 fault 類別排他
+    ——恰好一個且等於預期、禁「保留」/Reserved（R11-01＋R12-01＋R13-01；
+    非任意同義詞語意理解）。"""
     wrong_far = "IFAR" if far == "DFAR" else "DFAR"
     assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                          0b1000, 0b1001, 0b1101}, name
@@ -932,6 +943,110 @@ def test_r5_fault_status_check_rejects_bilingual_active_branch_conflicts():
                 _assert_fsr_far_semantics(mutated, far, f"{name}-bilingual")
 
 
+def test_r5_fault_status_rejects_all_official_arm_source_aliases():
+    """R13-01 的負向驗證：官方表格的**每一個** fault 名稱（中文 canonical、
+    0406C.d B5-7/B5-8 架構名、0460D Table 4-28 Sources 產品短名）混入 active
+    分支都必須失敗——與既有類別相同者（重複）與不同者（並存）皆然；
+    另以 backgrounded/permissioned/realignments 反證詞界線不誤中較長無關
+    單字。DFSR/IFSR 都跑（舊版漏掉五個 0460D/0406C 正式名，10 個變異放行）。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    vocab = [alias for aliases in _FSR_FAULT_ALIASES.values()
+             for alias in aliases]
+    assert len(vocab) >= 19  # 8 中文＋11 英文（三詞彙層）
+    for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+        for alias in vocab:
+            mutated = dict(status.enum)
+            mutated[0b0000] = mutated[0b0000].replace(
+                f"{far} 有效", f"{far} 有效, but also {alias}")
+            assert mutated[0b0000] != status.enum[0b0000], (name, alias)
+            with pytest.raises(AssertionError):
+                _assert_fsr_far_semantics(mutated, far, f"{name}-official")
+    # 詞界線反證：官方單字名藏在較長無關單字內不得誤中（不能誤殺）
+    status = next(x for x in regs["DFSR"].fields if x.name == "Status")
+    benign = dict(status.enum)
+    benign[0b0000] = benign[0b0000].replace(
+        "DFAR 有效", "DFAR 有效, backgrounded permissioned realignments")
+    _assert_fsr_far_semantics(benign, "DFAR", "DFSR-boundary-benign")
+
+
+def test_r5_actlr_matches_ddi0460d_table_4_25():
+    """R13-03 鎖定（審查轉錄）：ACTLR 依 Table 4-25——四欄語意修正
+    （FRCDIS=fetch-rate control、DNCH=AXI master 對 non-cacheable 的 data
+    forwarding、FDSnS=MPU 關閉時強制 Non-shared、sMOV=divide 不亂序完成）；
+    明文 reset 回填；[18] 僅 SBZ 不得 RES0/reset 0；[27:25]/[2:0] reset
+    維持接腳依賴（PARECCENRAMm/ERRENRAMm）。"""
+    reg = _regs(_spec("arm/cortex_r5.md"))["ACTLR"]
+    f = {x.name: x for x in reg.fields}
+    assert "fetch-rate" in f["FRCDIS"].desc and "Fault" not in f["FRCDIS"].desc.split("——")[0]
+    assert "data forwarding" in f["DNCH"].desc and "streaming" not in f["DNCH"].desc.split("——")[0]
+    assert "Non-shared" in f["FDSnS"].desc
+    assert "write-through" not in f["FDSnS"].desc.split("——")[0]
+    assert "divide" in f["sMOV"].desc and "亂序" in f["sMOV"].desc
+    for n in ("DICDI", "DIB2DI", "DIB1DI", "DIADI", "AXISCEN", "AXISCUEN",
+              "DILSM", "DEOLP", "DBHE", "FRCDIS", "RSDIS", "DBWR", "DLFO",
+              "ERPEG", "DNCH", "FORA", "FWT", "FDSnS", "sMOV", "DILS"):
+        assert f[n].reset == 0, n
+    assert f["BP"].reset == 0 and f["CEC"].reset == 0b100
+    r18 = next(x for x in reg.fields if x.msb == 18)
+    assert r18.name == "RESERVED" and r18.reset is None and "SBZ" in r18.desc
+    for n in ("B1TCMPCEN", "B0TCMPCEN", "ATCMPCEN"):
+        assert f[n].reset is None and "ECC 檢查" in f[n].desc, n
+    assert "PARECCENRAMm" in f["ATCMPCEN"].desc
+    for n in ("B1TCMECEN", "B0TCMECEN", "ATCMECEN"):
+        assert f[n].reset is None, n
+    assert "ERRENRAMm" in f["ATCMECEN"].desc
+
+
+def test_r5_adfsr_aifsr_match_ddi0460d_tables_4_31_4_32():
+    """R13-04 鎖定（審查轉錄）：ADFSR/AIFSR 三段保留位是 SBZ（RESERVED/
+    reset -），不得 RES0/reset 0；CacheWay/Index 有效性條件明文（僅 data
+    cache store 同位/ECC）；AIFSR.Index=SBZ；SideExt:Side 八組組合表；
+    整顆內容僅 parity/ECC fault 時有效。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for rn in ("ADFSR", "AIFSR"):
+        reg = regs[rn]
+        assert "同位/ECC" in reg.desc and "Unpredictable" in reg.desc, rn
+        segs = [x for x in reg.fields if x.name == "RESERVED"]
+        assert {(x.msb, x.lsb) for x in segs} == {(31, 28), (19, 14), (4, 0)}, rn
+        for x in segs:
+            assert x.reset is None and "SBZ" in x.desc, (rn, x.msb)
+        side = next(x for x in reg.fields if x.name == "Side")
+        for combo in ("0:00", "0:01", "0:10", "0:11",
+                      "1:00", "1:01", "1:10", "1:11"):
+            assert combo in side.desc, (rn, combo)
+        assert "AXI 周邊" in side.desc and "AHB 周邊" in side.desc, rn
+        cw = next(x for x in reg.fields if x.name == "CacheWay")
+        assert "有效" in cw.desc, rn
+    adf = {x.name: x for x in regs["ADFSR"].fields}
+    assert "data cache store" in adf["CacheWay"].desc
+    assert "data cache store" in adf["Index"].desc
+    aif = {x.name: x for x in regs["AIFSR"].fields}
+    assert "SBZ" in aif["Index"].desc
+
+
+def test_r5_tcm_region_registers_match_ddi0460d_tables_4_43_4_44():
+    """R13-05 鎖定（審查轉錄）：ATCMRR/BTCMRR 的 [11:7]＝讀取不可預期＋寫入
+    SBZ（RESERVED/reset -，不得稱 RES0）；bit1 SBZ（reset -）；Size 完整
+    enum（0、3–14 含 14=8MB，未列值保留）；Base 的 LOCZRAMAm、En 的
+    INITRAMAm/Bm 接腳 reset 語意與未實作時 RAZ。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for rn, pin_en in (("ATCMRR", "INITRAMAm"), ("BTCMRR", "INITRAMBm")):
+        reg = regs[rn]
+        seg = next(x for x in reg.fields if (x.msb, x.lsb) == (11, 7))
+        assert seg.name == "RESERVED" and seg.reset is None, rn
+        assert "不可預期" in seg.desc and "SBZ" in seg.desc, rn
+        b1 = next(x for x in reg.fields if (x.msb, x.lsb) == (1, 1))
+        assert b1.name == "RESERVED" and b1.reset is None and "SBZ" in b1.desc, rn
+        size = next(x for x in reg.fields if x.name == "Size")
+        assert set(size.enum) == {0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, rn
+        assert "8MB" in size.enum[14], rn
+        base = next(x for x in reg.fields if x.name == "Base")
+        assert "LOCZRAMAm" in base.desc, rn
+        en = next(x for x in reg.fields if x.name == "En")
+        assert pin_en in en.desc and "RAZ" in en.desc, rn
+
+
 def test_arm_mirror_provenance_row61_is_self_contained_and_commit_pinned():
     """R11-02＋R12-02 鎖定：0406C.d 鏡像 provenance 必須釘到 commit/blob，
     且 #61 列**自包含**——完整 pinned URL 與完整 SHA-256 直接在列內，
@@ -974,14 +1089,16 @@ def test_review_log_superseded_decisions_are_marked():
     SUPERSEDED 標記並指向新決議；僅部分修訂的列必須標 AMENDED——#34→#43、
     #50→#51（「逐項鎖八個 full S:Status」過度主張，R8-01 證）、#51→#54/#57
     （「驗 fault/FAR」「另一側必為保留」過度主張，R9-01/R10-01 證）、
-    #60→#62（「fault 類別互斥」僅涵蓋中文 token，R12-01 證）
+    #60→#62（「fault 類別互斥」僅涵蓋中文 token，R12-01 證）、#62→#64
+    （「英文名取 0406C/0460D 表格用語」漏五個正式名，R13-01 證）
     ——單獨擷取舊列時不得被當成現行狀態。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
     for num, amends in (("| 34 |", ("#43",)), ("| 50 |", ("#51",)),
-                        ("| 51 |", ("#54", "#57")), ("| 60 |", ("#62",))):
+                        ("| 51 |", ("#54", "#57")), ("| 60 |", ("#62",)),
+                        ("| 62 |", ("#64",))):
         row = next(l for l in log.splitlines() if l.startswith(num))
         assert "AMENDED" in row, num
         for amend in amends:

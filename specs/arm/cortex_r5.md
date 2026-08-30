@@ -2,7 +2,7 @@
 # Version: r1p2 · ARMv7-R
 # Width: 32
 # Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄；含 SCTLR 的 Figure B6-1 reset 圖親驗）／ARM DDI 0460D（Cortex-R5 TRM：TCMTR 親驗；ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC 六顆位元表，以及 SCTLR（Table 4-24）與 DFSR／IFSR（Table 4-28/4-29/4-30）的產品 overlay 為審查轉錄）
-# Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。2026-08-30 R5/R6 輪再套用：SCTLR 依 Table 4-24 產品 overlay（FI/Z 為 SBO、reset 依 0406C Figure B6-1 親驗回填）、DFSR/IFSR 依 §4.3.20 改產品欄名（SD/RW/S/Domain/Status）且 Status enum 對齊 Table 4-28（八個產品編碼，其餘保留）。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
+# Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。2026-08-30 R5/R6 輪再套用：SCTLR 依 Table 4-24 產品 overlay（FI/Z 為 SBO、reset 依 0406C Figure B6-1 親驗回填）、DFSR/IFSR 依 §4.3.20 改產品欄名（SD/RW/S/Domain/Status）且 Status enum 對齊 Table 4-28（八個產品編碼，其餘保留）。2026-08-31 R13 輪：ACTLR 四欄語意修正（FRCDIS/DNCH/FDSnS/sMOV）＋Table 4-25 明文 reset 回填；ADFSR/AIFSR 與 ATCMRR/BTCMRR 的 SBZ 段自 RES0/0 回退為 RESERVED/`-`、補有效性條件與 SideExt:Side 組合表（Table 4-31/4-32）、Size 完整列值含 14=8MB 與 LOCZRAMAm/INITRAM 接腳 reset 語意（Table 4-43/4-44）——皆仍為審查轉錄。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
 # Description: ARMv7-R（PMSAv7）架構 Table B5-11 清單中本工具可 dump 的可讀 CP15 系統控制暫存器＋選收的 Cortex-R5 產品暫存器（ATCMRR/BTCMRR）＋CPSR＋FPU（R5F），依官方 Table B5-11 順序排列；不含 c15 實作定義群與其他僅見於 TRM 的暫存器（範圍見下方註解的不收清單）
 
 <!--
@@ -811,39 +811,39 @@
 ## ACTLR
 - Offset: 0x064
 - Reset: -
-- Description: Auxiliary Control Register — Cortex-R5 的核心行為控制（dual issue／分支預測／cache・TCM ECC／AXI slave 等；MRC/MCR p15,0,Rt,c1,c0,1）。整表依 2026-08 交叉審查轉錄自 DDI 0460D §4.3.17 Table 4-25，尚未親驗原文——以此為據修改硬體設定前請先核對 TRM
+- Description: Auxiliary Control Register — Cortex-R5 的核心行為控制（dual issue／分支預測／cache・TCM ECC／AXI slave 等；MRC/MCR p15,0,Rt,c1,c0,1）。整表依交叉審查轉錄自 DDI 0460D §4.3.17 Table 4-25（2026-08-31 R13 輪修正四欄語意並回填明文 reset），尚未親驗原文——以此為據修改硬體設定前請先核對 TRM
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31 | DICDI | RW | - | 停用 dual issue（審查轉錄） |
-| 30 | DIB2DI | RW | - | 停用 dual issue 分組 B2（審查轉錄） |
-| 29 | DIB1DI | RW | - | 停用 dual issue 分組 B1（審查轉錄） |
-| 28 | DIADI | RW | - | 停用 dual issue 分組 A（審查轉錄） |
-| 27 | B1TCMPCEN | RW | - | B1TCM 同位／ECC 致能（審查轉錄） |
-| 26 | B0TCMPCEN | RW | - | B0TCM 同位／ECC 致能（審查轉錄） |
-| 25 | ATCMPCEN | RW | - | ATCM 同位／ECC 致能（審查轉錄） |
-| 24 | AXISCEN | RW | - | AXI slave cache RAM 存取致能（審查轉錄） |
-| 23 | AXISCUEN | RW | - | AXI slave 非特權 cache RAM 存取致能（審查轉錄） |
-| 22 | DILSM | RW | - | 停用 low interrupt latency 於 load/store multiple（審查轉錄） |
-| 21 | DEOLP | RW | - | 停用 end-of-loop 預測（審查轉錄） |
-| 20 | DBHE | RW | - | 停用分支歷史（審查轉錄） |
-| 19 | FRCDIS | RW | - | Fault 路徑組合邏輯停用（審查轉錄） |
-| 18 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
-| 17 | RSDIS | RW | - | 停用 return stack（審查轉錄） |
-| 16:15 | BP | RW | - | 分支預測策略（審查轉錄） |
-| 14 | DBWR | RW | - | 停用 write burst（審查轉錄） |
-| 13 | DLFO | RW | - | 停用 linefill 最佳化（審查轉錄） |
-| 12 | ERPEG | RW | - | 隨機同位錯誤產生致能（驗證用；審查轉錄） |
-| 11 | DNCH | RW | - | 停用 non-cacheable streaming 增強（審查轉錄） |
-| 10 | FORA | RW | - | 強制 outer read allocate（審查轉錄） |
-| 9 | FWT | RW | - | 強制 write-through（審查轉錄） |
-| 8 | FDSnS | RW | - | 強制 D-cache non-shareable 時 write-through（審查轉錄） |
-| 7 | sMOV | RW | - | 序列化 MOV 至 coprocessor（審查轉錄） |
-| 6 | DILS | RW | - | 停用 low interrupt latency 於所有 load/store（審查轉錄） |
-| 5:3 | CEC | RW | - | cache 錯誤控制（ECC／同位組態；審查轉錄） |
-| 2 | B1TCMECEN | RW | - | B1TCM 外部錯誤致能（審查轉錄） |
-| 1 | B0TCMECEN | RW | - | B0TCM 外部錯誤致能（審查轉錄） |
-| 0 | ATCMECEN | RW | - | ATCM 外部錯誤致能（審查轉錄） |
+| 31 | DICDI | RW | 0 | 停用 dual issue（審查轉錄） |
+| 30 | DIB2DI | RW | 0 | 停用 dual issue 分組 B2（審查轉錄） |
+| 29 | DIB1DI | RW | 0 | 停用 dual issue 分組 B1（審查轉錄） |
+| 28 | DIADI | RW | 0 | 停用 dual issue 分組 A（審查轉錄） |
+| 27 | B1TCMPCEN | RW | - | B1TCM ECC 檢查致能（reset 依 PARECCENRAMm[2:0] 接腳；審查轉錄） |
+| 26 | B0TCMPCEN | RW | - | B0TCM ECC 檢查致能（reset 依 PARECCENRAMm[2:0] 接腳；審查轉錄） |
+| 25 | ATCMPCEN | RW | - | ATCM ECC 檢查致能（reset 依 PARECCENRAMm[2:0] 接腳；審查轉錄） |
+| 24 | AXISCEN | RW | 0 | AXI slave cache RAM 存取致能（審查轉錄） |
+| 23 | AXISCUEN | RW | 0 | AXI slave 非特權 cache RAM 存取致能（審查轉錄） |
+| 22 | DILSM | RW | 0 | 停用 low interrupt latency 於 load/store multiple（審查轉錄） |
+| 21 | DEOLP | RW | 0 | 停用 end-of-loop 預測（審查轉錄） |
+| 20 | DBHE | RW | 0 | 停用分支歷史（審查轉錄） |
+| 19 | FRCDIS | RW | 0 | 停用 fetch-rate control（審查轉錄——R13 修正：舊寫「Fault 路徑組合邏輯」為誤譯） |
+| 18 | RESERVED | RO | - | 保留（Table 4-25 僅標 SBZ——軟體寫入規則，無讀值／reset 依據；審查轉錄） |
+| 17 | RSDIS | RW | 0 | 停用 return stack（審查轉錄） |
+| 16:15 | BP | RW | 0b00 | 分支預測策略（審查轉錄） |
+| 14 | DBWR | RW | 0 | 停用 write burst（審查轉錄） |
+| 13 | DLFO | RW | 0 | 停用 linefill 最佳化（審查轉錄） |
+| 12 | ERPEG | RW | 0 | 隨機同位錯誤產生致能（驗證用；審查轉錄） |
+| 11 | DNCH | RW | 0 | 停用 AXI master 對 Non-cacheable 存取的 data forwarding（審查轉錄——R13 修正：舊寫「non-cacheable streaming 增強」不準確） |
+| 10 | FORA | RW | 0 | 強制 outer read allocate（審查轉錄） |
+| 9 | FWT | RW | 0 | 強制 write-through（審查轉錄） |
+| 8 | FDSnS | RW | 0 | MPU 關閉時將 D-side Normal Non-cacheable 記憶體強制為 Non-shared（審查轉錄——R13 修正：舊寫 write-through 為語意錯置） |
+| 7 | sMOV | RW | 0 | divide 的 sMOV 不得亂序完成——divide 完成前不發射後續指令（審查轉錄——R13 修正：舊寫「序列化 MOV 至 coprocessor」缺 divide 語意） |
+| 6 | DILS | RW | 0 | 停用 low interrupt latency 於所有 load/store（審查轉錄） |
+| 5:3 | CEC | RW | 0b100 | cache 錯誤控制（ECC／同位組態；審查轉錄） |
+| 2 | B1TCMECEN | RW | - | B1TCM 外部錯誤致能（reset 依 ERRENRAMm[2:0] 接腳；審查轉錄） |
+| 1 | B0TCMECEN | RW | - | B0TCM 外部錯誤致能（reset 依 ERRENRAMm[2:0] 接腳；審查轉錄） |
+| 0 | ATCMECEN | RW | - | ATCM 外部錯誤致能（reset 依 ERRENRAMm[2:0] 接腳；審查轉錄） |
 
 ### Enum: BP
 - 0b00: 正常運作（動態分支預測）
@@ -936,34 +936,34 @@
 ## ADFSR
 - Offset: 0x074
 - Reset: -
-- Description: Auxiliary Data Fault Status Register — 資料側同位／ECC 錯誤的定位資訊（來源、cache way、index、可否恢復；MRC/MCR p15,0,Rt,c5,c1,0）。整表依 2026-08 交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文
+- Description: Auxiliary Data Fault Status Register — 資料側同位／ECC 錯誤的定位資訊（來源、cache way、index、可否恢復；MRC/MCR p15,0,Rt,c5,c1,0）。整表依交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文。**有效性（Table 4-31 註腳）**：僅當 DFSR 回報同位/ECC 錯誤時，本暫存器內容才有效——其他時間讀值不可預期（Unpredictable）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:28 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
-| 27:24 | CacheWay | RW | - | 發生錯誤的 cache way（審查轉錄） |
-| 23:22 | Side | RW | - | 錯誤來源側（cache／TCM／AXI 等分類與 SideExt 併讀；審查轉錄） |
+| 31:28 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 27:24 | CacheWay | RW | - | 發生錯誤的 cache way——僅 data cache store 同位/ECC 錯誤時有效，其他情況讀值不可預期（Table 4-31 註腳；審查轉錄） |
+| 23:22 | Side | RW | - | 錯誤來源側低 2 位，與 SideExt 併讀（Table 4-32；審查轉錄）：SideExt:Side＝0:00 Cache/AXIM、0:01 ATCM、0:10 BTCM、1:01 AXI 周邊埠（含虛擬介面）、1:10 AHB 周邊埠、0:11/1:00/1:11 保留 |
 | 21 | Recoverable | RW | - | 錯誤可否恢復（審查轉錄） |
-| 20 | SideExt | RW | - | 錯誤來源側擴充位（審查轉錄） |
-| 19:14 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
-| 13:5 | Index | RW | - | 發生錯誤的 index（審查轉錄） |
-| 4:0 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 20 | SideExt | RW | - | 錯誤來源側擴充位（高位；八組組合表見 Side 欄；審查轉錄） |
+| 19:14 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 13:5 | Index | RW | - | 發生錯誤的 index——僅 data cache store 同位/ECC 錯誤時有效；TCM 存取時為 SBZ（Table 4-31 註腳；審查轉錄） |
+| 4:0 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
 
 ## AIFSR
 - Offset: 0x078
 - Reset: -
-- Description: Auxiliary Instruction Fault Status Register — 指令側同位／ECC 錯誤的定位資訊（來源、cache way、index、可否恢復；MRC/MCR p15,0,Rt,c5,c1,1）。整表依 2026-08 交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文
+- Description: Auxiliary Instruction Fault Status Register — 指令側同位／ECC 錯誤的定位資訊（來源、cache way、可否恢復；MRC/MCR p15,0,Rt,c5,c1,1）。整表依交叉審查轉錄自 DDI 0460D Figure 4-33／Table 4-31/4-32，尚未親驗原文。**有效性（Table 4-31 註腳）**：僅當 IFSR 回報同位/ECC 錯誤時，本暫存器內容才有效——其他時間讀值不可預期（Unpredictable）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:28 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
-| 27:24 | CacheWay | RW | - | 發生錯誤的 cache way（審查轉錄） |
-| 23:22 | Side | RW | - | 錯誤來源側（cache／TCM／AXI 等分類與 SideExt 併讀；審查轉錄） |
+| 31:28 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 27:24 | CacheWay | RW | - | cache way——「僅 data cache store 同位/ECC 錯誤時有效」的註腳適用（指令側無此情境），勿無條件解讀（Table 4-31 註腳；審查轉錄） |
+| 23:22 | Side | RW | - | 錯誤來源側低 2 位，與 SideExt 併讀（Table 4-32；審查轉錄）：SideExt:Side＝0:00 Cache/AXIM、0:01 ATCM、0:10 BTCM、1:01 AXI 周邊埠（含虛擬介面）、1:10 AHB 周邊埠、0:11/1:00/1:11 保留 |
 | 21 | Recoverable | RW | - | 錯誤可否恢復（審查轉錄） |
-| 20 | SideExt | RW | - | 錯誤來源側擴充位（審查轉錄） |
-| 19:14 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
-| 13:5 | Index | RW | - | 發生錯誤的 index（審查轉錄） |
-| 4:0 | RES0 | RO | 0 | 保留（SBZ；審查轉錄） |
+| 20 | SideExt | RW | - | 錯誤來源側擴充位（高位；八組組合表見 Side 欄；審查轉錄） |
+| 19:14 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 13:5 | Index | RW | - | Index——AIFSR 上為 SBZ（Table 4-31 註腳：僅 data cache store 同位/ECC 情境有效，AIFSR 與 TCM 存取為 SBZ；審查轉錄，R13 修正舊版無條件解讀） |
+| 4:0 | RESERVED | RO | - | 保留（Table 4-31 僅標 SBZ——寫入須為零，無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
 
 ## DFAR
 - Offset: 0x07C
@@ -1285,11 +1285,26 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:12 | Base | RW | - | ATCM 區域基底位址（對齊 TCM 大小） |
-| 11:7 | RES0 | RO | - | 讀為 UNP、寫入須為 0（審查轉錄） |
-| 6:2 | Size | RO | - | ATCM 大小（唯讀，寫入忽略；0=0KB、3=4KB…13=4MB，2^(Size+9) bytes；審查轉錄） |
-| 1 | RES0 | RO | 0 | 保留（SBZ） |
-| 0 | En | RW | - | ATCM 致能 |
+| 31:12 | Base | RW | - | ATCM 區域基底位址（對齊 TCM 大小）。Reset：LOCZRAMAm=1 時為 0、=0 時實作定義（板級決定；Table 4-44 審查轉錄） |
+| 11:7 | RESERVED | RO | - | 保留——讀取不可預期（UNP）、寫入須為 0（SBZ；Table 4-44 審查轉錄，R13 修正：與 RES0（讀為 0）語意衝突，不得稱 RES0） |
+| 6:2 | Size | RO | - | ATCM 大小（唯讀，寫入忽略；官方列值見 Enum，未列值（1、2、15–31）保留；審查轉錄） |
+| 1 | RESERVED | RO | - | 保留（Table 4-44 僅標 SBZ——無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 0 | En | RW | - | ATCM 致能（reset 由 INITRAMAm 接腳決定；未實作 ATCM 時為 RAZ；審查轉錄） |
+
+### Enum: Size
+- 0: 無 TCM（0KB）
+- 3: 4KB
+- 4: 8KB
+- 5: 16KB
+- 6: 32KB
+- 7: 64KB
+- 8: 128KB
+- 9: 256KB
+- 10: 512KB
+- 11: 1MB
+- 12: 2MB
+- 13: 4MB
+- 14: 8MB
 
 ### Enum: En
 - 0: ATCM 停用
@@ -1302,11 +1317,26 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 31:12 | Base | RW | - | BTCM 區域基底位址（對齊 TCM 大小） |
-| 11:7 | RES0 | RO | - | 讀為 UNP、寫入須為 0（審查轉錄） |
-| 6:2 | Size | RO | - | BTCM 大小（唯讀，寫入忽略；同 ATCMRR 編碼；審查轉錄） |
-| 1 | RES0 | RO | 0 | 保留（SBZ） |
-| 0 | En | RW | - | BTCM 致能 |
+| 31:12 | Base | RW | - | BTCM 區域基底位址（對齊 TCM 大小）。Reset：LOCZRAMAm=0 時為 0、=1 時實作定義（板級決定；Table 4-43 審查轉錄） |
+| 11:7 | RESERVED | RO | - | 保留——讀取不可預期（UNP）、寫入須為 0（SBZ；Table 4-43 審查轉錄，R13 修正：與 RES0（讀為 0）語意衝突，不得稱 RES0） |
+| 6:2 | Size | RO | - | BTCM 大小（唯讀，寫入忽略；官方列值見 Enum，未列值（1、2、15–31）保留；審查轉錄） |
+| 1 | RESERVED | RO | - | 保留（Table 4-43 僅標 SBZ——無讀值／reset 依據；審查轉錄，R13 自 RES0/0 回退） |
+| 0 | En | RW | - | BTCM 致能（reset 由 INITRAMBm 接腳決定；未實作 BTCM 時為 RAZ；審查轉錄） |
+
+### Enum: Size
+- 0: 無 TCM（0KB）
+- 3: 4KB
+- 4: 8KB
+- 5: 16KB
+- 6: 32KB
+- 7: 64KB
+- 8: 128KB
+- 9: 256KB
+- 10: 512KB
+- 11: 1MB
+- 12: 2MB
+- 13: 4MB
+- 14: 8MB
 
 ### Enum: En
 - 0: BTCM 停用
