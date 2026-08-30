@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -24,13 +24,13 @@
 | 6 | cortex_r5 | RGNR [7:0]→[3:0]（R5 為 12/16 區） | 親驗（0406C 欄寬規則）＋審查 |
 | 7 | cortex_r5 | ACTLR 填入完整 29 欄產品表 | 審查轉錄（Table 4-25），無 Verified |
 | 8 | cortex_r5 | ADFSR/AIFSR 填入產品欄位表（CacheWay/Side/Index…） | 審查轉錄（Table 4-31/4-32），無 Verified |
-| 9 | cortex_r5 | SCTLR FI/RR/Z 產品固定行為以註記呈現（Access 未改，待原文） | 審查轉錄 |
+| 9 | cortex_r5 | **SUPERSEDED by #34/#41**——SCTLR FI/RR/Z 產品固定行為以註記呈現（Access 未改，待原文） | 審查轉錄 |
 | 10 | cortex_r5 | CPACR ASEDIS/D32DIS 改 R5F 產品語意（VFPv3-D16→兩位恆 1） | 審查轉錄 |
 | 11 | cortex_r5 | CSSELR 產品註（僅 L1；產品層 Level 唯讀） | 審查轉錄 |
 | 12 | cortex_r5 | 新增 MVFR0/MVFR1（62 顆） | 親驗（0406C §B6.1） |
 | 13 | cortex_a55 | SCTLR_EL1[29:28]→RES1（無 FEAT_LSMAOC） | 親驗（Linux SCTLR_EL1_RES1＋架構規則）＋審查（Figure 3-162） |
 | 14 | cortex_a55 | CCSIDR 補 WT/WB/RA/WA[31:28] | 親驗（0406C 同佈局）＋審查（§3.2.23／Figure 3-99，R3 更正圖號） |
-| 15 | cortex_a55 | AFSR0/1_EL1→RES0（消除表格與說明矛盾） | 親驗（自檔矛盾）＋審查 |
+| 15 | cortex_a55 | **SUPERSEDED by #38/#44**——AFSR0/1_EL1→RES0（消除表格與說明矛盾；後續改為上半 Reserved／下半 RES0 分層） | 親驗（自檔矛盾）＋審查 |
 | 16 | cortex_a55 | CSSELR_EL1.TnD→RES0（A55 無 MTE） | 同上 |
 | 17 | cortex_a55 | REVIDR_EL1 移除 ARMv7 alias-to-MIDR 語意（AArch64 無此行為） | 親驗（語意錯置源頭＝0406C v7 原文） |
 | 18 | cortex_a55 | ID 暫存器逐欄標「本核心（v8.2）讀 0」（位置不變；~60 欄） | 共識（R2R/R3 分類：產品存在性，非位置錯誤） |
@@ -42,7 +42,7 @@
 | 24 | n25/n45 | udcause 存在條件修正（predicate=any，與 N 擴充無關） | 親驗（pinned csr_andes.c） |
 | 25 | n25/n45 | Status 改為「QEMU 模型 profile」定位＋priv 1.12／mvendorid 0x31E 期望值註 | 親驗（pinned cpu.c） |
 | 26 | n45 | Status 記錄官網世代衝突（RV32GCB／M-U-S／PMP32／PMA16 vs QEMU 模型） | R3 確認之來源衝突 |
-| 27 | cortex_a55 | AIDR_EL1 版面修正：[63:32] RES0＋[31:0] RES0（A55 未使用、讀 0）——結案 R2 A55-04／R4-01 | 審查轉錄（§3.2.14／Figure 3-91） |
+| 27 | cortex_a55 | **SUPERSEDED by #36**——AIDR_EL1 版面修正：[63:32] RES0＋[31:0] RES0（上半部後經 #36 更正為 RESERVED）——結案 R2 A55-04／R4-01 | 審查轉錄（§3.2.14／Figure 3-91） |
 | 28 | cortex_a55 | ID_AA64MMFR0 TGran4/TGran64 改雙層描述（架構 0＝支援＋產品圖 Figure 3-127 併標 RES0）；R3R 反問 1 結案 | 親驗（sail／0406C 架構側）＋審查轉錄（Figure 3-127） |
 | 29 | cortex_a55 | CPUACTLR_EL1 內部保留位 Access RO→RW；Access 欄明定為硬體屬性（R4-04） | 審查轉錄（§3.2.28 accessibility）＋TF-A MSR 寫入佐證 |
 | 30 | cortex_r5 | 檔頭清理：Source「僅 TCMTR」、MVFR 待補註解、「全部可讀 CP15」範圍語（R4-05） | 自檔矛盾 |
@@ -56,6 +56,13 @@
 | 38 | cortex_a55 | AFSR0/1_EL1 上半部 RES0→RESERVED（Figure 3-85/3-88）；Description 分層明寫「暫存器介面 RW（Table 3-54）、產品內容無可寫資訊」（R5-04） | 審查轉錄 |
 | 39 | 本檔 | QEMU 佐證釘 commit `d2e570cc0f97b936902a5b1b86b73c0f5998b475`（qemu-project/qemu target/arm/tcg/cpu32.c 親驗），並標示該模型 MIDR=0x411fc153＝**r1p3**——僅作 r1p2 推導的交叉佐證，不取代 DDI 0460D（R5-05） | 親驗（pinned 原始碼） |
 | 40 | tests | 新增 R5R 鎖定測試 5 條＋改寫 AIDR 鎖與 A55 reset 例外清單（見 tests/test_specs_official.py） | — |
+| 41 | cortex_r5 | SCTLR enum 產品化（R6-01）：刪 FI/Z 的通用 ARMv7 開關 enum（產品上此二位不控制功能）、RR enum 改「兩值皆 random replacement」 | 審查轉錄（Table 4-24） |
+| 42 | cortex_r5 | DFSR/IFSR Status enum 對齊 Table 4-28（R6-02）：刪 R5 上為 Reserved 的 Lockdown（10100）與 coprocessor abort（11010）；IFSR 補非同步外部中止（10110）與非同步同位/ECC（11000）；同位錯誤改稱同位/ECC；未列組合皆保留 | 審查轉錄（Table 4-28 共用編碼表） |
+| 43 | cortex_r5 | SCTLR reset 補 FI=0、BR=0、[6:3]=0b1111；Z 維持 `-`（R6-03）——依 0406C.d Figure B6-1（PMSAv7 reset 圖）逐位親驗＋CP15BEN 條文（實作→reset 1／未實作→RAO/WI）；證據規則補「reset 圖明文」一類 | 親驗（Figure B6-1＋§B6.1 條文） |
+| 44 | cortex_a55 | AFSR0/1 上半 RESERVED 的 reset 0→`-`（R6-04）：Reserved 無讀值保證，與 #36 的原則一致套用；下半 RES0 維持 0 | 自我一致性（R6 指正） |
+| 45 | cortex_r5 | DFAR/IFAR 的「見 DFSR.FS／IFSR.FS」失效引用改為 S:Status＋SD 分層說明（R6-05） | 自檔矛盾 |
+| 46 | cortex_r5＋本檔 | CFGBR 自 live spec 完全移除（R6-06 表態採納）：歷史只留本檔（#34 與本列）；A55/R5 檔頭補記 R5R/R6R 修正範圍、舊決議 #9/#15/#27 標 SUPERSEDED（R6-07） | 慣例決策 |
+| 47 | cortex_a55＋tools | REVIDR_EL1[31:0] 欄名改 IMPDEF（照 Figure 3-160 原圖標籤，R6-09）；sample 產生器的 SCTLR.Z 說明改歸因 ACTLR.BP（R6-08） | 審查轉錄＋慣例 |
 
 ## 二、待原文親驗後回填（需使用者提供 PDF 或關鍵頁）
 

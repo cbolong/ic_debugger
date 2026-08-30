@@ -595,7 +595,7 @@ def test_r5_sctlr_matches_ddi0460d_table_4_24():
     親驗：SBO/SBZ＝硬體忽略寫入）、RR[14]=RW/reset 0、AFE/TRE 具名 RO、
     保留段依產品分組；「依 CFGBR 接腳」無原廠依據，不准回來。"""
     text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
-    assert "CFGBR" not in text.replace("舊版「依 CFGBR 接腳」無原廠依據", "")
+    assert "CFGBR" not in text  # R6-06：live spec 全面禁用（歷史只留 SPEC_REVIEW_LOG）
     sctlr = _regs(_spec("arm/cortex_r5.md"))["SCTLR"]
     f = {x.name: x for x in sctlr.fields if x.name != "RESERVED"}
     assert f["FI"].access == "RO" and f["Z"].access == "RO"
@@ -628,7 +628,7 @@ def test_a55_revidr_product_layout_and_reset():
     （不是 RES0）、下半部 REVIDR；register reset=0（Table 3-49 審查轉錄）。"""
     revidr = _regs(_spec("arm/cortex_a55.md"))["REVIDR_EL1"]
     f = {(x.msb, x.lsb): x.name for x in revidr.fields}
-    assert f == {(63, 32): "RESERVED", (31, 0): "REVIDR"}
+    assert f == {(63, 32): "RESERVED", (31, 0): "IMPDEF"}  # R6-09：照 Figure 3-160 原圖標籤
     assert revidr.reset == 0
 
 
@@ -642,6 +642,9 @@ def test_a55_afsr_product_layout_and_register_access_text():
         f = {(x.msb, x.lsb): x.name for x in r.fields}
         assert f == {(63, 32): "RESERVED", (31, 0): "RES0"}, n
         assert "RW" in r.desc and "MRS/MSR" in r.desc, n
+        upper = next(x for x in r.fields if x.msb == 63)
+        lower = next(x for x in r.fields if x.msb == 31)
+        assert upper.reset is None and lower.reset == 0, n  # R6-04：Reserved 無 reset 依據
 
 
 def test_r5_qemu_evidence_is_commit_pinned():
@@ -650,3 +653,78 @@ def test_r5_qemu_evidence_is_commit_pinned():
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     assert "d2e570cc0f97b936902a5b1b86b73c0f5998b475" in log
     assert "r1p3" in log
+
+
+def test_r5_sctlr_product_resets_and_enums():
+    """R6 審查修正鎖定（R6-01/R6-03）：SCTLR 的 FI/BR reset=0、[6:3]=0b1111
+    （0406C.d Figure B6-1 逐位親驗＋CP15BEN 條文：實作→reset 1／未實作→RAO/WI）、
+    Z 維持未知（Figure B6-1 標 †：RO 實作定義或 reset 0）；FI/Z 不得再掛通用
+    ARMv7 開關 enum（產品上此二位不控制功能）；RR enum 兩值都必須講
+    random replacement、不得再出現 round-robin。"""
+    sctlr = _regs(_spec("arm/cortex_r5.md"))["SCTLR"]
+    f = {x.name: x for x in sctlr.fields if x.name != "RESERVED"}
+    assert f["FI"].reset == 0 and f["BR"].reset == 0
+    assert f["Z"].reset is None
+    g63 = next(x for x in sctlr.fields if (x.msb, x.lsb) == (6, 3))
+    assert g63.reset == 0b1111
+    assert f["FI"].enum == {} and f["Z"].enum == {}
+    assert "random" in f["RR"].enum[0] and "random" in f["RR"].enum[1]
+    assert "round-robin" not in (f["RR"].enum[0] + f["RR"].enum[1])
+
+
+def test_r5_fault_status_enums_match_table_4_28():
+    """R6 審查修正鎖定（R6-02）：DFSR/IFSR 的 Status enum 只准列 DDI 0460D
+    Table 4-28（DFSR/IFSR 共用編碼表）的八個 S:Status 產品編碼——00000/00001/
+    00010/10110/01000/11000/11001/01101。R5 上為 Reserved 的 Lockdown（10100）
+    與 coprocessor abort（11010）不得出現；兩檔都要含非同步外部中止與
+    同位/ECC 各項。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for name in ("DFSR", "IFSR"):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+        assert set(status.enum) == {0b0000, 0b0001, 0b0010, 0b0110,
+                                    0b1000, 0b1001, 0b1101}, name
+        text = "".join(status.enum.values())
+        assert "Lockdown" not in text and "coprocessor" not in text, name
+        assert "非同步外部中止" in status.enum[0b0110], name
+        assert "非同步同位/ECC" in status.enum[0b1000], name
+        assert "同步同位/ECC" in status.enum[0b1001], name
+    # 整檔層級（與 R6 驗收 grep 同標準）：連否定式歷史註記都不留，歷史只在總帳
+    text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
+    assert "Lockdown" not in text and "coprocessor abort" not in text
+
+
+def test_no_stale_r5_fault_field_references():
+    """R6 審查修正鎖定（R6-05）：欄名產品化後，全文不得再出現失效的
+    DFSR.FS／IFSR.FS 交叉引用。"""
+    text = (SPECS / "arm" / "cortex_r5.md").read_text(encoding="utf-8")
+    assert "DFSR.FS" not in text and "IFSR.FS" not in text
+
+
+def test_spec_headers_match_current_product_overlays():
+    """R6 審查修正鎖定（R6-07）：檔頭來源/狀態摘要必須涵蓋現行 overlay 範圍——
+    R5 檔頭要列 SCTLR/DFSR/IFSR 的 Table 4-24/4-28 轉錄，A55 檔頭要反映
+    R5/R6 輪的 Reserved 分層與 IMPDEF 欄名修正。"""
+    r5_head = "\n".join((SPECS / "arm" / "cortex_r5.md")
+                        .read_text(encoding="utf-8").splitlines()[:6])
+    assert "Table 4-24" in r5_head and "4-28" in r5_head
+    a55_head = "\n".join((SPECS / "arm" / "cortex_a55.md")
+                         .read_text(encoding="utf-8").splitlines()[:6])
+    assert "Reserved" in a55_head and "IMPDEF" in a55_head
+
+
+def test_review_log_superseded_decisions_are_marked():
+    """R6 審查修正鎖定（R6-07）：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED
+    開頭標記並指向新決議，避免單獨擷取舊列時被當成現行狀態。"""
+    log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
+    for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
+        row = next(l for l in log.splitlines() if l.startswith(prefix))
+        assert "SUPERSEDED" in row and sup in row, prefix
+
+
+def test_sample_r5_branch_prediction_is_attributed_to_actlr():
+    """R6 審查修正鎖定（R6-08）：範例產生器不得再把 SCTLR.Z 說成分支預測開關
+    ——分支預測歸因 ACTLR.BP=00，Z 標明是產品 SBO。"""
+    src = (SPECS.parent / "tools" / "make_sample_bin.py").read_text(encoding="utf-8")
+    assert "ACTLR.BP" in src
+    assert "SCTLR.Z 是產品 SBO" in src
+    assert "M/C/I/Z/BR=1" not in src

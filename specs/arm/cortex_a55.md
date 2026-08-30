@@ -2,7 +2,7 @@
 # Version: r2p0 · ARMv8.2-A AArch64
 # Width: 64
 # Source: Arm Architecture Reference Manual for A-profile (ARM DDI 0487)／Cortex-A55 TRM (ARM 100442)
-# Status: ⚠ 本檔定位為 **A55_EL1_debug_subset**（EL1 除錯視角常用集，非產品完整 register model；範圍見檔頭註解）。55 顆中 45 顆的欄位位置已親驗對照（41 顆依 Arm 機讀架構規格 sail-arm、CCSIDR 依 DDI 0406C.d 同佈局、3 顆實作定義顆之具名位依 ARM 官方 TF-A），出處見各暫存器的 Verified；其中 CPUECTLR／CPUPWRCTLR 的完整切分與多顆產品讀值依 2026-08 三輪交叉審查轉錄自 A55 TRM（100442_0200_02_en），該等內容標「審查轉錄」**尚未親驗原文**。2026-08-29 依交叉審查修正：SCTLR_EL1[29:28]→RES1、CCSIDR 補 WT/WB/RA/WA、AFSR0/1 與 CSSELR.TnD→RES0、REVIDR 移除 v7 別名語意、ID 暫存器逐欄標註產品存在性（位置不變）。CNTKCTL 的 EL0PTEN/EL0VTEN 為 v8.0 基線欄位（審查曾誤判為 ECV，已三方確認維持）。待親驗值清單見 SPEC_REVIEW_LOG.md
+# Status: ⚠ 本檔定位為 **A55_EL1_debug_subset**（EL1 除錯視角常用集，非產品完整 register model；範圍見檔頭註解）。55 顆中 45 顆的欄位位置已親驗對照（41 顆依 Arm 機讀架構規格 sail-arm、CCSIDR 依 DDI 0406C.d 同佈局、3 顆實作定義顆之具名位依 ARM 官方 TF-A），出處見各暫存器的 Verified；其中 CPUECTLR／CPUPWRCTLR 的完整切分與多顆產品讀值依 2026-08 三輪交叉審查轉錄自 A55 TRM（100442_0200_02_en），該等內容標「審查轉錄」**尚未親驗原文**。2026-08-29 依交叉審查修正：SCTLR_EL1[29:28]→RES1、CCSIDR 補 WT/WB/RA/WA、CSSELR.TnD→RES0、REVIDR 移除 v7 別名語意、ID 暫存器逐欄標註產品存在性（位置不變）。2026-08-30 R5/R6 輪再修正：AIDR/REVIDR/AFSR0/AFSR1 上半部依原圖標 Reserved（非 RES0）、下半部依原圖（AIDR/AFSR＝RES0、REVIDR＝IMPDEF）；AIDR/REVIDR 的 Reset 0x0 依 Table 3-49 轉錄；AFSR 明寫「暫存器介面 RW、產品內容無可寫資訊」的分層。CNTKCTL 的 EL0PTEN/EL0VTEN 為 v8.0 基線欄位（審查曾誤判為 ECV，已三方確認維持）。待親驗值清單見 SPEC_REVIEW_LOG.md
 # Description: AArch64 EL1 系統暫存器常用子集（識別、控制、位址轉換、例外狀態）
 
 <!--
@@ -755,7 +755,7 @@
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
 | 63:32 | RESERVED | RO | 0 | 保留（Figure 3-160：Reserved，審查轉錄） |
-| 31:0 | REVIDR | RO | 0 | 實作定義；r2p0 reset/讀值 0（Table 3-49 審查轉錄） |
+| 31:0 | IMPDEF | RO | 0 | Figure 3-160 原圖標籤＝IMPLEMENTATION DEFINED（2026-08 R6 修正：欄名照原圖，不再自命名 REVIDR）；語意＝REVIDR（errata 修補資訊），r2p0 reset/讀值 0（Table 3-49 審查轉錄） |
 
 ## AIDR_EL1
 - Offset: 0x0A8
@@ -959,8 +959,8 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-85：Reserved，審查轉錄；非 RES0） |
-| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-85 審查轉錄） |
+| 63:32 | RESERVED | RO | - | 保留（Figure 3-85：Reserved，審查轉錄；非 RES0——2026-08 R6 修正：Reserved 無讀值/reset 保證，reset 回 `-`） |
+| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-85 審查轉錄；RES0 讀 0 有架構依據） |
 
 ## AFSR1_EL1
 - Offset: 0x0F8
@@ -970,8 +970,8 @@
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
-| 63:32 | RESERVED | RO | 0 | 保留（Figure 3-88：Reserved，審查轉錄；非 RES0） |
-| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-88 審查轉錄） |
+| 63:32 | RESERVED | RO | - | 保留（Figure 3-88：Reserved，審查轉錄；非 RES0——2026-08 R6 修正：Reserved 無讀值/reset 保證，reset 回 `-`） |
+| 31:0 | RES0 | RO | 0 | A55：RES0（Figure 3-88 審查轉錄；RES0 讀 0 有架構依據） |
 
 ## CONTEXTIDR_EL1
 - Offset: 0x100
