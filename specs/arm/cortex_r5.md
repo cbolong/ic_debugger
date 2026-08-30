@@ -1,8 +1,8 @@
 # CPU: ARM Cortex-R5
 # Version: r1p2 · ARMv7-R
 # Width: 32
-# Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄）／ARM DDI 0460D（Cortex-R5 TRM：TCMTR 親驗；ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC 六顆位元表為審查轉錄）
-# Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
+# Source: ARM DDI 0406C.d（ARMv7-A/R Architecture Reference Manual，官方 PDF 逐欄轉錄；含 SCTLR 的 Figure B6-1 reset 圖親驗）／ARM DDI 0460D（Cortex-R5 TRM：TCMTR 親驗；ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC 六顆位元表，以及 SCTLR（Table 4-24）與 DFSR／IFSR（Table 4-28/4-29/4-30）的產品 overlay 為審查轉錄）
+# Status: ⚠ 62 顆中 56 顆的位元定義已親驗對照官方文件（55 顆依 ARM DDI 0406C.d §B6/§B1/§B8 逐欄轉錄、TCMTR 依 DDI 0460D 圖表、MVFR0/MVFR1 依 DDI 0406C.d §B6.1），出處見各暫存器的 Verified。另 6 顆（ACTLR／ADFSR／AIFSR／ATCMRR／BTCMRR／FPEXC）的產品位元表依 2026-08 三輪交叉審查轉錄自 DDI 0460D（Table 4-25/4-31/4-32/4-43/4-44/11-6），**尚未親驗原文**，該顆的 Description 逐一註明「審查轉錄」——以此為據修改硬體設定前請先核對 TRM。2026-08-29 依交叉審查修正：ATCMRR/BTCMRR 編碼互換（正確為 ATCM=c9,c1,1、BTCM=c9,c1,0）、補 TCM Size 欄、DFSR/IFSR 改 RW、FPEXC 產品化（DEX[29]）、FPSCR trap 位改 RAZ/WI、RGNR 改 4-bit。2026-08-30 R5/R6 輪再套用：SCTLR 依 Table 4-24 產品 overlay（FI/Z 為 SBO、reset 依 0406C Figure B6-1 親驗回填）、DFSR/IFSR 依 §4.3.20 改產品欄名（SD/RW/S/Domain/Status）且 Status enum 對齊 Table 4-28（八個產品編碼，其餘保留）。待辦與待親驗值清單見 SPEC_REVIEW_LOG.md。R5 與 R5F 差異：FPSID/FPSCR/FPEXC/MVFR0/MVFR1 僅 R5F（各顆 Description 已標）
 # Description: ARMv7-R（PMSAv7）架構 Table B5-11 清單中本工具可 dump 的可讀 CP15 系統控制暫存器＋選收的 Cortex-R5 產品暫存器（ATCMRR/BTCMRR）＋CPSR＋FPU（R5F），依官方 Table B5-11 順序排列；不含 c15 實作定義群與其他僅見於 TRM 的暫存器（範圍見下方註解的不收清單）
 
 <!--
@@ -725,7 +725,7 @@
 - Offset: 0x060
 - Reset: -
 - Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「SCTLR, System Control Register, PMSA」— 位元位置與架構層讀值（RAO/RAZ）依官方逐欄核對；產品層分組與固定行為依 DDI 0460D §4.3.16 Table 4-24 審查轉錄（尚未親驗原文，各欄註明兩層出處）
-- Description: System Control Register — 核心主控制（Reset 值依 VINITHIm／CFGEE／TEINIT 等組態接腳而異；MRC p15,0,Rt,c1,c0,0）。2026-08 第五輪審查套用 DDI 0460D Table 4-24 產品 overlay：保留段依產品表分組；SBO/SBZ 位 Access 標 RO——0406C.d 玻璃屋親驗：SBO/SBZ＝「硬體必須忽略寫入」，且軟體應寫全 1／全 0、否則須預期 UNPREDICTABLE；SBO/SBZ 本身不保證讀值，Reset 欄只在「架構層 RAO/RAZ 親驗」或「Table 4-24 明文」時才填
+- Description: System Control Register — 核心主控制（Reset 值依 VINITHIm／CFGEE／TEINIT 等組態接腳而異；MRC p15,0,Rt,c1,c0,0）。2026-08 第五輪審查套用 DDI 0460D Table 4-24 產品 overlay：保留段依產品表分組；SBO/SBZ 位 Access 標 RO——0406C.d 玻璃屋親驗：SBO/SBZ＝「硬體必須忽略寫入」，且軟體應寫全 1／全 0、否則須預期 UNPREDICTABLE；SBO/SBZ 本身不保證讀值，Reset 欄只在「架構層 RAO/RAZ 親驗」、「0406C.d Figure B6-1 reset 圖親驗」或「Table 4-24 明文」時才填（2026-08 R6 補：Figure B6-1 是逐位 reset 明文，證據力等同前者）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
@@ -738,20 +738,20 @@
 | 25 | EE | RW | - | 例外時載入 CPSR.E 的值（reset 值＝CFGEE 接腳，轉錄） |
 | 24 | VE | RW | 0 | 中斷向量化（實作定義的 FIQ/IRQ 向量；reset 0＝Table 4-24 明文，轉錄） |
 | 23:22 | RESERVED | RO | 0b11 | 保留——產品表整段併標 SBO（轉錄，不再拆出架構 U 欄）；架構層 bit23 RAO/SBOP、bit22 U 恆 1（親驗）故讀 0b11 |
-| 21 | FI | RO | - | Fast Interrupts 恆啟用——產品標 SBO（轉錄）：寫入忽略、軟體應寫 1 否則 UNPREDICTABLE（0406C 玻璃屋親驗；SBO 不保證讀值，Reset 不填） |
+| 21 | FI | RO | 0 | Fast Interrupts 恆啟用——產品標 SBO（轉錄）：寫入忽略、軟體應寫 1 否則 UNPREDICTABLE（0406C 玻璃屋親驗）。reset 0＝0406C.d Figure B6-1（PMSAv7 SCTLR reset 圖，親驗）——SBO 是寫入規則，不牴觸架構 reset 值 |
 | 20 | RESERVED | RO | 0 | 保留——產品 SBZ（轉錄）；架構層 RAZ/SBZP（親驗） |
 | 19 | DZ | RW | 0 | 除以零產生 Undefined 例外（reset 0＝Table 4-24 明文，轉錄） |
 | 18 | RESERVED | RO | 1 | 保留——產品 SBO（轉錄）；架構層 RAO/SBOP（親驗）故讀 1 |
-| 17 | BR | RW | - | MPU 背景區域致能。2026-08 第五輪修正：舊版「依 CFGBR 接腳」無原廠依據（Table 4-24 與 DDI 0460D 組態接腳表皆無此接腳，審查確認）——刪除；Table 4-24 未給 reset |
+| 17 | BR | RW | 0 | MPU 背景區域致能（reset 0＝0406C.d Figure B6-1 親驗；Table 4-24 未另給 reset） |
 | 16 | RESERVED | RO | 1 | 保留——產品 SBO（轉錄）；架構層 RAO/SBOP（親驗）故讀 1 |
 | 15 | RESERVED | RO | 0 | 保留——產品 SBZ（轉錄）；架構層 RAZ/SBZP（親驗） |
 | 14 | RR | RW | 0 | cache 取代策略選擇（reset 0＝Table 4-24 明文，轉錄）。產品行為：無論此位為何，Cortex-R5 皆使用 random replacement——此位功能無效（Table 4-24 轉錄） |
 | 13 | V | RW | - | 例外向量基底位址選擇（reset 值＝VINITHIm 接腳，轉錄） |
 | 12 | I | RW | 0 | I-cache 全域致能（reset 0＝Table 4-24 明文；無 I-cache 組態時 SBZ，轉錄） |
-| 11 | Z | RO | - | 分支預測——產品標 SBO（轉錄；2026-08 第五輪修正：舊版誤標 RW）：R5 恆支援分支預測、此位寫入忽略，實際預測策略由 ACTLR 控制 |
+| 11 | Z | RO | - | 分支預測——產品標 SBO（轉錄；2026-08 第五輪修正：舊版誤標 RW）：R5 恆支援分支預測、此位寫入忽略，實際預測策略由 ACTLR 控制。Reset 維持 `-`：Figure B6-1 將此位標 †（可為 RO 實作定義值、否則 reset 0——親驗，無單一定值） |
 | 10 | SW | RW | 0 | SWP/SWPB 指令致能（1 時以完整 bus lock 執行；reset 0＝Table 4-24 明文，轉錄） |
 | 9:7 | RESERVED | RO | 0 | 保留——產品表整段併標 SBZ（轉錄，不再拆出架構 B 欄）；架構層 [9:8] RAZ/SBZP、[7] B 恆 0（親驗）故讀 0 |
-| 6:3 | RESERVED | RO | - | 保留——產品表整段併標 SBO（轉錄，不再拆出架構 CP15BEN 欄）；架構層 [6]/[4:3] RAO/SBOP（親驗）但 [5] CP15BEN 無讀值保證，整段 Reset 不填 |
+| 6:3 | RESERVED | RO | 0b1111 | 保留——產品表整段併標 SBO（轉錄，不再拆出架構 CP15BEN 欄）；架構層 [6]/[4:3] RAO/SBOP、[5] CP15BEN 兩情形皆 1（有實作→reset 1、未實作→RAO/WI；0406C §B6.1 條文＋Figure B6-1 親驗） |
 | 2 | C | RW | 0 | D-cache／unified cache 全域致能（reset 0＝Table 4-24 明文；無 D-cache 組態時 SBZ，轉錄） |
 | 1 | A | RW | 0 | 對齊檢查致能（reset 0＝Table 4-24 明文，轉錄） |
 | 0 | M | RW | 0 | MPU 全域致能（reset 0＝Table 4-24 明文；無 MPU 組態時 SBZ，轉錄） |
@@ -772,10 +772,6 @@
 - 0: 使用向量表的 FIQ/IRQ 向量
 - 1: 使用實作定義的 FIQ/IRQ 向量（VIC 埠）
 
-### Enum: FI
-- 0: 全部效能特性開啟
-- 1: 低中斷延遲組態
-
 ### Enum: DZ
 - 0: 除以零回傳 0，不產生例外
 - 1: 除以零產生 Undefined 例外
@@ -785,8 +781,8 @@
 - 1: 特權存取改用預設記憶體映射當背景區域
 
 ### Enum: RR
-- 0: 一般（例如隨機）取代策略
-- 1: 可預測（round-robin）取代策略
+- 0: random replacement（Cortex-R5 實際策略）
+- 1: 對 Cortex-R5 無效——仍為 random replacement（Table 4-24：此位不改變策略，轉錄）
 
 ### Enum: V
 - 0: 低位例外向量（0x00000000）
@@ -795,10 +791,6 @@
 ### Enum: I
 - 0: I-cache 關閉
 - 1: I-cache 開啟
-
-### Enum: Z
-- 0: 分支預測關閉
-- 1: 分支預測開啟
 
 ### Enum: SW
 - 0: SWP/SWPB 為 UNDEFINED
@@ -901,7 +893,7 @@
 | 10 | S | RW | - | 故障狀態最高位（與 Status[3:0] 併讀；產品欄名 Table 4-29 轉錄；架構欄名 FS[4]） |
 | 9:8 | RESERVED | RO | 0 | 恆讀 0、寫入忽略（Table 4-29 明文 always read 0／writes ignored，轉錄） |
 | 7:4 | Domain | RO | - | 產品表仍列欄名 Domain，但 Cortex-R5 無 domains——SBZ、寫入忽略（Table 4-29 轉錄） |
-| 3:0 | Status | RW | - | 故障狀態低四位（主編碼＝S:Status，官方 Table B5-8／產品 Table 4-28；external abort 再以 SD 分子類，SD 不併入主編碼） |
+| 3:0 | Status | RW | - | 故障狀態低四位（主編碼＝S:Status，產品 Table 4-28——DFSR/IFSR 共用編碼表，轉錄；external abort 再以 SD 分子類，SD 不併入主編碼）。enum 只列 Table 4-28 的八個產品編碼，未列的 S:Status 組合皆為保留 |
 
 ### Enum: RW
 - 0: 由讀取指令造成
@@ -911,11 +903,9 @@
 - 0b0000: S=0＝背景故障（未命中任何 MPU 區域，DFAR 有效）／S=1＝保留
 - 0b0001: S=0＝對齊故障（DFAR 有效）／S=1＝保留
 - 0b0010: S=0＝watchpoint 除錯事件（v7 Debug 時 DFAR 為 UNKNOWN）／S=1＝保留
-- 0b0100: S=0＝保留／S=1＝實作定義（Lockdown）
 - 0b0110: S=0＝保留／S=1＝非同步外部中止（DFAR 為 UNKNOWN）
-- 0b1000: S=0＝同步外部中止（DFAR 有效）／S=1＝非同步同位錯誤（DFAR 為 UNKNOWN）
-- 0b1001: S=0＝保留／S=1＝同步同位錯誤
-- 0b1010: S=0＝保留／S=1＝實作定義（coprocessor abort）
+- 0b1000: S=0＝同步外部中止（DFAR 有效）／S=1＝非同步同位/ECC 錯誤（DFAR 為 UNKNOWN）
+- 0b1001: S=0＝保留／S=1＝同步同位/ECC 錯誤
 - 0b1101: S=0＝權限故障（MPU，DFAR 有效）／S=1＝保留
 
 ## IFSR
@@ -932,16 +922,15 @@
 | 10 | S | RW | - | 故障狀態最高位（與 Status[3:0] 併讀；產品欄名 Table 4-30 轉錄；架構欄名 FS[4]） |
 | 9:8 | RESERVED | RO | - | 保留——SBZ（Table 4-30 未如 DFSR 明寫 always-read-0，Reset 不填；轉錄） |
 | 7:4 | Domain | RO | - | 產品表仍列欄名 Domain，但 Cortex-R5 無 domains——SBZ（Table 4-30 轉錄） |
-| 3:0 | Status | RW | - | 故障狀態低四位（主編碼＝S:Status，官方 Table B5-7／產品 Table 4-28；external abort 再以 SD 分子類） |
+| 3:0 | Status | RW | - | 故障狀態低四位（主編碼＝S:Status，產品 Table 4-28——DFSR/IFSR 共用編碼表，轉錄；external abort 再以 SD 分子類）。enum 只列 Table 4-28 的八個產品編碼，未列的 S:Status 組合皆為保留 |
 
 ### Enum: Status
 - 0b0000: S=0＝背景故障（未命中任何 MPU 區域，IFAR 有效）／S=1＝保留
 - 0b0001: S=0＝對齊故障（IFAR 有效）／S=1＝保留
 - 0b0010: S=0＝產生 Prefetch Abort 的除錯事件（IFAR 為 UNKNOWN）／S=1＝保留
-- 0b0100: S=0＝保留／S=1＝實作定義（Lockdown）
-- 0b1000: S=0＝同步外部中止（IFAR 有效）／S=1＝保留
-- 0b1001: S=0＝保留／S=1＝同步同位錯誤（IFAR 有效）
-- 0b1010: S=0＝保留／S=1＝實作定義（coprocessor abort）
+- 0b0110: S=0＝保留／S=1＝非同步外部中止（Table 4-28 為 DFSR/IFSR 共用編碼表，轉錄；非同步中止時 IFAR 為 UNKNOWN——架構慣例）
+- 0b1000: S=0＝同步外部中止（IFAR 有效）／S=1＝非同步同位/ECC 錯誤（Table 4-28 轉錄）
+- 0b1001: S=0＝保留／S=1＝同步同位/ECC 錯誤（IFAR 有效）
 - 0b1101: S=0＝權限故障（MPU，IFAR 有效）／S=1＝保留
 
 ## ADFSR
@@ -980,7 +969,7 @@
 - Offset: 0x07C
 - Reset: -
 - Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「DFAR, Data Fault Address Register, PMSA」— 位元切分依官方逐欄核對
-- Description: Data Fault Address Register — 造成同步資料中止的位址（有效性見 DFSR.FS 的說明；MRC p15,0,Rt,c6,c0,0）
+- Description: Data Fault Address Register — 造成同步資料中止的位址（有效性見 DFSR 的 S:Status 主編碼各項說明；external abort 子類另看 DFSR.SD。MRC p15,0,Rt,c6,c0,0）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|
@@ -990,7 +979,7 @@
 - Offset: 0x080
 - Reset: -
 - Verified: ARM DDI 0406C.d（ARMv7-A/R 架構手冊） §B6.1「IFAR, Instruction Fault Address Register, PMSA」— 位元切分依官方逐欄核對
-- Description: Instruction Fault Address Register — 造成 Prefetch Abort 的指令位址（有效性見 IFSR.FS 的說明；MRC p15,0,Rt,c6,c0,2）
+- Description: Instruction Fault Address Register — 造成 Prefetch Abort 的指令位址（有效性見 IFSR 的 S:Status 主編碼各項說明；external abort 子類另看 IFSR.SD。MRC p15,0,Rt,c6,c0,2）
 
 | Bits  | Field | Access | Reset | Description |
 |-------|-------|--------|-------|-------------|

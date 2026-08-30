@@ -1,7 +1,8 @@
 """產生 examples/sample_r5.bin — 對應 specs/arm/cortex_r5.md 的示範 dump。
 
 情境設定成一個「有東西可看」的除錯現場：
-- SCTLR 開了 MPU / I-cache / D-cache / 分支預測 / 背景區（多個欄位 ≠ reset）
+- SCTLR 開了 MPU / I-cache / D-cache / 背景區（多個欄位 ≠ reset）；分支預測
+  走 ACTLR.BP=00 的正常動態策略——SCTLR.Z 是產品 SBO，不控制分支預測
 - CPACR 把 FPU（cp10/cp11）設成完全存取
 - CPSR 停在 Supervisor 模式、IRQ/FIQ 開啟
 - DFSR 記錄了一筆「寫入時的對齊 fault」，DFAR 是未對齊位址
@@ -40,7 +41,7 @@ WORDS = [
     ("AIDR",        0x00000000),
     ("CSSELR",      0x00000000),  # 選 L1 D-cache
     # ── c1 控制群 ───────────────────────────────────────────────────
-    ("SCTLR",       0x00C7187D),  # M/C/I/Z/BR=1 + RES1 位元
+    ("SCTLR",       0x00C7187D),  # M/C/I/BR=1＋保留位；Z=1 僅為 SBO 慣寫（不代表分支預測開關）
     ("ACTLR",       0x00000000),
     ("CPACR",       0x00F00000),  # cp10/cp11 完全存取
     # ── c5/c6 故障群 ────────────────────────────────────────────────
