@@ -700,27 +700,41 @@ def _fsr_branch(label, s):
 
 
 def _assert_fsr_far_semantics(enum, far, name):
-    """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內。"""
+    """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內；
+    FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）。"""
+    wrong_far = "IFAR" if far == "DFAR" else "DFAR"
     assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                          0b1000, 0b1001, 0b1101}, name
+    for label in enum.values():  # 結構：每列恰好 S=0／S=1 兩個分支、禁 UNKNOWN
+        parts = label.split("／")
+        assert len(parts) == 2, (name, label)
+        assert parts[0].startswith("S=0＝") and parts[1].startswith("S=1＝"), \
+            (name, label)
+        assert "UNKNOWN" not in label, (name, label)
     for full, (fault, far_kw) in _FSR_FAR_EXPECT.items():
         s, low = full >> 4, full & 0xF
         branch = _fsr_branch(enum[low], s)
         assert fault in branch, (name, f"{full:05b}", branch)
         if fault.startswith("同步"):  # 防「同步…」被「非同步…」子字串誤中
             assert "非同步" not in branch, (name, f"{full:05b}", branch)
+        assert wrong_far not in branch, (name, f"{full:05b}", branch)
         if far_kw == "有效":
             assert f"{far} 有效" in branch, (name, f"{full:05b}", branch)
+            assert "保持原值" not in branch and "Unchanged" not in branch \
+                and "UNPREDICTABLE" not in branch, (name, f"{full:05b}", branch)
         elif far_kw == "保持原值":
-            assert "保持原值" in branch and "Unchanged" in branch, \
+            assert f"{far} 保持原值" in branch and "Unchanged" in branch, \
+                (name, f"{full:05b}", branch)
+            assert "有效" not in branch and "UNPREDICTABLE" not in branch, \
                 (name, f"{full:05b}", branch)
         else:
-            assert "UNPREDICTABLE" in branch, (name, f"{full:05b}", branch)
+            assert f"{far} 為 UNPREDICTABLE" in branch, \
+                (name, f"{full:05b}", branch)
+            assert "有效" not in branch and "保持原值" not in branch \
+                and "Unchanged" not in branch, (name, f"{full:05b}", branch)
     for low, s_used in _FSR_RESERVED_SIDE:
         other = _fsr_branch(enum[low], 1 - s_used)
         assert "保留" in other, (name, f"{low:04b}", other)
-    for label in enum.values():
-        assert "UNKNOWN" not in label, (name, label)
     text = "".join(enum.values())
     assert "Lockdown" not in text and "coprocessor" not in text, name
 
@@ -731,8 +745,10 @@ def test_r5_fault_status_and_far_semantics_match_table_4_28():
     full S:Status 編碼**（01000 與 11000 共用低四位 1000，以 S 分支承載）。
     檢查器逐 full encoding 先切出 S=n 分支再驗 fault 名與 FAR 狀態
     （Valid／Unchanged／UNPREDICTABLE），同步項禁「非同步」子字串誤中，
-    單編碼列的另一側必須是保留；Status label 禁 UNKNOWN；Lockdown/
-    coprocessor abort 不得出現。"""
+    單編碼列的另一側必須是保留；R9-01 補強：FAR 狀態必須帶正確的
+    FAR 名（DFAR/IFAR，錯名禁入）且三態互斥——同一分支不得同時宣稱
+    兩種 FAR 狀態；Status label 禁 UNKNOWN；Lockdown/coprocessor abort
+    不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
@@ -756,6 +772,42 @@ def test_r5_fault_status_check_rejects_swapped_s_branches():
         _assert_fsr_far_semantics(swapped, "DFAR", "DFSR-swapped")
 
 
+def test_r5_fault_status_check_rejects_wrong_far_register_name():
+    """R9-01A 的負向驗證：把 Unchanged/UNPREDICTABLE 分支裡的 FAR 名改成
+    另一顆（DFSR 寫成 IFAR、IFSR 寫成 DFAR；Valid 分支保持正確），
+    檢查器必須失敗——舊版只驗狀態關鍵字、不驗 FAR 名，此變異會通過。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for name, far, wrong in (("DFSR", "DFAR", "IFAR"), ("IFSR", "IFAR", "DFAR")):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+        mutated = {k: v.replace(f"{far} 保持原值", f"{wrong} 保持原值")
+                        .replace(f"{far} 為 UNPREDICTABLE",
+                                 f"{wrong} 為 UNPREDICTABLE")
+                   for k, v in status.enum.items()}
+        assert mutated != status.enum, name  # 變異必須真的有發生
+        with pytest.raises(AssertionError):
+            _assert_fsr_far_semantics(mutated, far, f"{name}-wrongfar")
+
+
+def test_r5_fault_status_check_rejects_contradictory_far_states():
+    """R9-01B 的負向驗證：同一分支同時宣稱兩種 FAR 狀態必須失敗——
+    Valid 分支摻 UNPREDICTABLE、UNPREDICTABLE 分支摻「有效」，雙向都鎖
+    （舊版只要求正確狀態存在、不排除矛盾狀態並存，此變異會通過）。"""
+    status = next(x for x in _regs(_spec("arm/cortex_r5.md"))["DFSR"].fields
+                  if x.name == "Status")
+    valid_plus = dict(status.enum)
+    valid_plus[0b0000] = valid_plus[0b0000].replace(
+        "DFAR 有效", "DFAR 有效、同時為 UNPREDICTABLE")
+    assert valid_plus[0b0000] != status.enum[0b0000]
+    with pytest.raises(AssertionError):
+        _assert_fsr_far_semantics(valid_plus, "DFAR", "DFSR-valid+unpred")
+    unpred_plus = dict(status.enum)
+    unpred_plus[0b0110] = unpred_plus[0b0110].replace(
+        "DFAR 為 UNPREDICTABLE", "DFAR 為 UNPREDICTABLE（DFAR 有效）")
+    assert unpred_plus[0b0110] != status.enum[0b0110]
+    with pytest.raises(AssertionError):
+        _assert_fsr_far_semantics(unpred_plus, "DFAR", "DFSR-unpred+valid")
+
+
 def test_no_stale_r5_fault_field_references():
     """R6 審查修正鎖定（R6-05）：欄名產品化後，全文不得再出現失效的
     DFSR.FS／IFSR.FS 交叉引用。"""
@@ -776,15 +828,17 @@ def test_spec_headers_match_current_product_overlays():
 
 
 def test_review_log_superseded_decisions_are_marked():
-    """R6-07＋R7-04 鎖定：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED 標記
-    並指向新決議；僅部分修訂的 #34 必須標 AMENDED by #43——單獨擷取舊列時
-    不得被當成現行狀態。"""
+    """R6-07＋R7-04＋R9-02 鎖定：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED
+    標記並指向新決議；僅部分修訂的 #34 必須標 AMENDED by #43、#50 必須標
+    AMENDED by #51（其「逐項鎖八個 full S:Status」經 R8-01 證明過度主張）
+    ——單獨擷取舊列時不得被當成現行狀態。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
-    row34 = next(l for l in log.splitlines() if l.startswith("| 34 |"))
-    assert "AMENDED" in row34 and "#43" in row34
+    for num, amend in (("| 34 |", "#43"), ("| 50 |", "#51")):
+        row = next(l for l in log.splitlines() if l.startswith(num))
+        assert "AMENDED" in row and amend in row, num
 
 
 def test_sample_r5_branch_prediction_is_attributed_to_actlr():
