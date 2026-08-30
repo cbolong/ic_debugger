@@ -686,7 +686,8 @@ _FSR_FAR_EXPECT = {
     0b11001: ("同步同位/ECC", "有效"),
     0b01101: ("權限故障", "有效"),
 }
-# 只承載單一 full encoding 的 low-Status 列：另一側分支必須是保留
+# 只承載單一 full encoding 的 low-Status 列：另一側分支必須恰等於
+# 「S=n＝保留」（R10-01 exact 鎖——子字串驗法擋不住摻入額外語意）
 _FSR_RESERVED_SIDE = ((0b0000, 0), (0b0001, 0), (0b0010, 0),
                       (0b0110, 1), (0b1001, 1), (0b1101, 0))
 
@@ -701,7 +702,8 @@ def _fsr_branch(label, s):
 
 def _assert_fsr_far_semantics(enum, far, name):
     """逐 full S:Status 驗證 fault 名與 FAR 狀態都落在正確的 S 分支內；
-    FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）。"""
+    FAR 狀態必須帶正確 FAR 名（DFAR/IFAR）且三態互斥（R9-01）；
+    reserved 側必須恰為「S=n＝保留」，不得摻入其他語意（R10-01）。"""
     wrong_far = "IFAR" if far == "DFAR" else "DFAR"
     assert set(enum) == {0b0000, 0b0001, 0b0010, 0b0110,
                          0b1000, 0b1001, 0b1101}, name
@@ -733,8 +735,9 @@ def _assert_fsr_far_semantics(enum, far, name):
             assert "有效" not in branch and "保持原值" not in branch \
                 and "Unchanged" not in branch, (name, f"{full:05b}", branch)
     for low, s_used in _FSR_RESERVED_SIDE:
-        other = _fsr_branch(enum[low], 1 - s_used)
-        assert "保留" in other, (name, f"{low:04b}", other)
+        other_s = 1 - s_used
+        other = _fsr_branch(enum[low], other_s)
+        assert other == f"S={other_s}＝保留", (name, f"{low:04b}", other)
     text = "".join(enum.values())
     assert "Lockdown" not in text and "coprocessor" not in text, name
 
@@ -747,8 +750,8 @@ def test_r5_fault_status_and_far_semantics_match_table_4_28():
     （Valid／Unchanged／UNPREDICTABLE），同步項禁「非同步」子字串誤中，
     單編碼列的另一側必須是保留；R9-01 補強：FAR 狀態必須帶正確的
     FAR 名（DFAR/IFAR，錯名禁入）且三態互斥——同一分支不得同時宣稱
-    兩種 FAR 狀態；Status label 禁 UNKNOWN；Lockdown/coprocessor abort
-    不得出現。"""
+    兩種 FAR 狀態；R10-01 補強：reserved 側恰為「S=n＝保留」exact 鎖；
+    Status label 禁 UNKNOWN；Lockdown/coprocessor abort 不得出現。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
         status = next(x for x in regs[name].fields if x.name == "Status")
@@ -808,6 +811,23 @@ def test_r5_fault_status_check_rejects_contradictory_far_states():
         _assert_fsr_far_semantics(unpred_plus, "DFAR", "DFSR-unpred+valid")
 
 
+def test_r5_fault_status_check_rejects_reserved_branch_with_extra_semantics():
+    """R10-01 的負向驗證：reserved 分支摻入額外 fault/FAR 語意必須失敗——
+    舊版只驗「保留」子字串存在，「S=1＝保留，但同時聲稱背景故障…」也放行；
+    exact 鎖後 reserved 側必須恰為「S=n＝保留」。DFSR/IFSR 都覆蓋。"""
+    regs = _regs(_spec("arm/cortex_r5.md"))
+    for name, far in (("DFSR", "DFAR"), ("IFSR", "IFAR")):
+        status = next(x for x in regs[name].fields if x.name == "Status")
+        mutated = dict(status.enum)
+        mutated[0b0000] = mutated[0b0000].replace(
+            "S=1＝保留",
+            f"S=1＝保留，但同時聲稱背景故障（{far} 為 UNPREDICTABLE）",
+        )
+        assert mutated[0b0000] != status.enum[0b0000], name
+        with pytest.raises(AssertionError):
+            _assert_fsr_far_semantics(mutated, far, f"{name}-reserved-extra")
+
+
 def test_no_stale_r5_fault_field_references():
     """R6 審查修正鎖定（R6-05）：欄名產品化後，全文不得再出現失效的
     DFSR.FS／IFSR.FS 交叉引用。"""
@@ -828,17 +848,21 @@ def test_spec_headers_match_current_product_overlays():
 
 
 def test_review_log_superseded_decisions_are_marked():
-    """R6-07＋R7-04＋R9-02 鎖定：被推翻的舊決議 #9/#15/#27 必須以 SUPERSEDED
-    標記並指向新決議；僅部分修訂的 #34 必須標 AMENDED by #43、#50 必須標
-    AMENDED by #51（其「逐項鎖八個 full S:Status」經 R8-01 證明過度主張）
+    """R6-07＋R7-04＋R9-02＋R10-02 鎖定：被推翻的舊決議 #9/#15/#27 必須以
+    SUPERSEDED 標記並指向新決議；僅部分修訂的列必須標 AMENDED——#34→#43、
+    #50→#51（「逐項鎖八個 full S:Status」過度主張，R8-01 證）、#51→#54/#57
+    （「驗 fault/FAR」「另一側必為保留」過度主張，R9-01/R10-01 證）
     ——單獨擷取舊列時不得被當成現行狀態。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
-    for num, amend in (("| 34 |", "#43"), ("| 50 |", "#51")):
+    for num, amends in (("| 34 |", ("#43",)), ("| 50 |", ("#51",)),
+                        ("| 51 |", ("#54", "#57"))):
         row = next(l for l in log.splitlines() if l.startswith(num))
-        assert "AMENDED" in row and amend in row, num
+        assert "AMENDED" in row, num
+        for amend in amends:
+            assert amend in row, (num, amend)
 
 
 def test_sample_r5_branch_prediction_is_attributed_to_actlr():
