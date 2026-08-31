@@ -3,7 +3,7 @@
 本檔是 `specs/` 四份 CPU spec 與外部審查（ChatGPT／OpenAI）交叉檢查的**決議與待辦總帳**。
 目的：讓每一輪審查的結論不散失，並明確區分「已套用」「待原文親驗」「已駁回」。
 
-- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用；R12＝OpenAI Codex 第十二輪複驗；R12R＝2026-08-31 第十二輪套用；R13＝OpenAI Codex 第十三輪複驗（**首輪帶官方 0460D 直接親驗**）；R13R＝2026-08-31 第十三輪套用。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
+- 審查輪次：R1＝2026-08-24 自我稽核；R2＝ChatGPT 第二輪審查；R2R＝Claude 複驗回覆；R3＝OpenAI 第三輪審查；R3R＝2026-08-29 套用；R4＝OpenAI 第四輪獨立複驗（直接抽查 repo／CI／TRM）；R4R＝2026-08-29 第四輪套用；R5＝OpenAI Codex 第五輪複驗（帶 TRM 原文逐欄轉錄）；R5R＝2026-08-30 第五輪套用；R6＝OpenAI Codex 第六輪複驗；R6R＝2026-08-30 第六輪套用；R7＝OpenAI Codex 第七輪複驗；R7R＝2026-08-30 第七輪套用；R8＝OpenAI Codex 第八輪複驗；R8R＝2026-08-30 第八輪套用；R9＝OpenAI Codex 第九輪複驗；R9R＝2026-08-30 第九輪套用；R10＝OpenAI Codex 第十輪複驗（原報告未送達，內容由其重複回覆確認函重述）；R10R＝2026-08-30 第十輪套用；R11＝OpenAI Codex 第十一輪複驗；R11R＝2026-08-30 第十一輪套用；R12＝OpenAI Codex 第十二輪複驗；R12R＝2026-08-31 第十二輪套用；R13＝OpenAI Codex 第十三輪複驗（**首輪帶官方 0460D 直接親驗**）；R13R＝2026-08-31 第十三輪套用；Final＝OpenAI Codex 結案前最終驗收（維護者已裁示收束，僅一次性收尾）；FinalR＝2026-08-31 一次性收尾套用（單一 cleanup commit，**迴圈就此結案**）。**被後續決議推翻的舊列以「SUPERSEDED by #n」開頭標記；僅部分修訂的以「AMENDED by #n」標記——單獨引用舊列前先看標記**
 - 證據分層定義（Verified 欄位的授予標準）：
   1. **親驗一手**：Claude 直接開啟一手來源逐欄核對（唯一可寫 `- Verified:` 的層級）
   2. **審查轉錄**：審查方轉錄自 TRM，Claude 無法在工作環境開啟原文——內容可寫入表格，但**不給 Verified**，
@@ -12,7 +12,7 @@
 - 工作環境限制（2026-08-29 查核）：documentation-service.arm.com／andestech.com 於 Claude 工作環境不可達；
   GitHub raw／git 可達。此為環境紀錄，非 spec 永久屬性（依 R3 修正 7 移出 spec 本體，記於此）。
 
-## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R；#62–63＝R12R；#64–68＝R13R）
+## 一、已套用的決議（#1–26＝R3R；#27–33＝R4R；#34–40＝R5R；#41–47＝R6R；#48–50＝R7R；#51–53＝R8R；#54–56＝R9R；#57–59＝R10R；#60–61＝R11R；#62–63＝R12R；#64–68＝R13R；#69–71＝FinalR）
 
 | # | 檔案 | 決議 | 證據層級 |
 |---|---|---|---|
@@ -84,6 +84,9 @@
 | 66 | cortex_r5 | ACTLR 依 Table 4-25 修正（R13-03，審查轉錄）：FRCDIS＝停用 fetch-rate control（舊「Fault 路徑組合邏輯」誤譯）、DNCH＝停用 AXI master 對 non-cacheable 的 data forwarding、FDSnS＝MPU 關閉時強制 D-side Normal Non-cacheable 為 Non-shared（舊 write-through 語意錯置）、sMOV＝divide 不亂序完成；[27:25] 收斂為 ECC 檢查致能（reset 依 PARECCENRAMm）；[18] 自 RES0/0 回退 RESERVED/`-`（僅 SBZ）；明文 reset 回填（[31:28]/[24:19]/[17]/[14:6] 各 0、BP=0b00、CEC=0b100）、[2:0] reset 依 ERRENRAMm | 審查轉錄（Table 4-25） |
 | 67 | cortex_r5 | ADFSR/AIFSR 依 Table 4-31/4-32 修正（R13-04，審查轉錄）：三段保留位（[31:28]/[19:14]/[4:0]）自 RES0/0 回退 RESERVED/`-`（僅 SBZ）；CacheWay/Index 補「僅 data cache store 同位/ECC 錯誤時有效」註腳、AIFSR.Index＝SBZ（舊版無條件解讀屬實質診斷錯誤）；兩顆補整體有效性（僅 DFSR/IFSR 回報同位/ECC 時內容有效）；Side/SideExt 補八組 SideExt:Side 組合表（0:00 Cache/AXIM…1:10 AHB 周邊埠） | 審查轉錄（Table 4-31/4-32） |
 | 68 | cortex_r5 | ATCMRR/BTCMRR 依 Table 4-43/4-44 修正（R13-05，審查轉錄）：[11:7]＝讀取不可預期＋寫入 SBZ（不得稱 RES0——與「讀為 0」語意衝突）；bit1 自 RES0/0 回退 RESERVED/`-`；Size 完整 enum（0＝無 TCM、3–14 級距含 **14=8MB**，未列值 1、2、15–31 保留）；Base reset 依 LOCZRAMAm（ATCM：=1 為 0／=0 實作定義；BTCM 相反）、En reset 依 INITRAMAm/Bm、未實作該 TCM 時 En 為 RAZ | 審查轉錄（Table 4-43/4-44） |
+| 69 | cortex_r5 | AIFSR 語意收尾（FINAL-01）：CacheWay 欄把 Table 4-31 註腳的推論寫完——僅 data cache store 同位/ECC 錯誤時有效，AIFSR（指令側）不存在此情境，**讀值為 Unpredictable、不得解讀**；暫存器摘要同步移除「cache way」作為可用定位資訊（改列 CacheWay=Unpredictable、Index=SBZ）。測試補鎖（欄位 Unpredictable＋摘要正反兩向）並先對舊文字驗證必敗 | 審查轉錄（Table 4-31 註腳）＋邏輯推論（AIFSR 為指令側） |
+| 70 | cortex_r5 | ACTLR pin-dependent reset 逐欄對應（FINAL-02）：六列自匯流排式 `[2:0]` 改 exact mapping——B1TCMPCEN[27]←PARECCENRAMm[2]、B0TCMPCEN[26]←PARECCENRAMm[1]、ATCMPCEN[25]←PARECCENRAMm[0]、B1TCMECEN[2]←ERRENRAMm[2]、B0TCMECEN[1]←ERRENRAMm[1]、ATCMECEN[0]←ERRENRAMm[0]。資料驅動測試逐欄鎖 exact pin＋禁 `[2:0]` 籠統寫法，先對舊文字驗證必敗 | 審查轉錄（Table 4-25；映射內部自洽——兩組皆 B1/B0/ATCM ↔ [2]/[1]/[0]） |
+| 71 | 本檔＋終結函 | 結案條款定稿（FINAL-03～06）：終結函四處措辭修正——(a) Andes 證據層級＝「RISC-V Privileged v1.11＋Andes 官方 QEMU pinned model；AndeStar V5 SPA／datasheet 尚未取得」，N45 為指定 QEMU model profile、不等同現行矽產品定版；(b)「R8–R12 零內容錯誤」改「當時未新發現內容錯誤」（R13 修正的錯誤當時已存在，只是未被發現）；(c) 總保證降為可證明範圍——「本審查已覆蓋範圍內無剩餘已知錯誤；未親驗、未細切、產品世代衝突與未收錄範圍明列 pending」，不宣稱全域／永久正確；(d) 內容審查重啟條件放寬為「可重現一手證據」（官方 URL＋版次＋SHA-256／使用者附件／審查環境可讀副本），官方 PDF **不強制** commit 入 repo——repo 只需記來源、版次、雜湊、頁碼與驗證結論；惟 Verified 升級仍以審查環境實際可讀為前提，僅有 URL＋雜湊而環境不可達時維持轉錄層 | 慣例決策（結案程序） |
 
 ## 二、待原文親驗後回填（官方 PDF 公網已可取得——見 #65）
 
