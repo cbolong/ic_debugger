@@ -1104,19 +1104,22 @@ def test_review_log_superseded_decisions_are_marked():
     #50→#51（「逐項鎖八個 full S:Status」過度主張，R8-01 證）、#51→#54/#57
     （「驗 fault/FAR」「另一側必為保留」過度主張，R9-01/R10-01 證）、
     #60→#62（「fault 類別互斥」僅涵蓋中文 token，R12-01 證）、#62→#64
-    （「英文名取 0406C/0460D 表格用語」漏五個正式名，R13-01 證）
-    ——單獨擷取舊列時不得被當成現行狀態。"""
+    （「英文名取 0406C/0460D 表格用語」漏五個正式名，R13-01 證）、#65→#71
+    （解鎖路徑自「PDF 入 repo」放寬為任何審查環境可讀的一手證據，FinalR
+    複驗證）——單獨擷取舊列時不得被當成現行狀態；第二節現行指引不得再
+    出現舊的「放入 repo 即可解鎖」路徑（新舊兩套指引不得並存）。"""
     log = (SPECS.parent / "SPEC_REVIEW_LOG.md").read_text(encoding="utf-8")
     for prefix, sup in (("| 9 |", "#34"), ("| 15 |", "#38"), ("| 27 |", "#36")):
         row = next(l for l in log.splitlines() if l.startswith(prefix))
         assert "SUPERSEDED" in row and sup in row, prefix
     for num, amends in (("| 34 |", ("#43",)), ("| 50 |", ("#51",)),
                         ("| 51 |", ("#54", "#57")), ("| 60 |", ("#62",)),
-                        ("| 62 |", ("#64",))):
+                        ("| 62 |", ("#64",)), ("| 65 |", ("#71",))):
         row = next(l for l in log.splitlines() if l.startswith(num))
         assert "AMENDED" in row, num
         for amend in amends:
             assert amend in row, (num, amend)
+    assert "放入 repo 即可解鎖" not in log
 
 
 def test_sample_r5_branch_prediction_is_attributed_to_actlr():
