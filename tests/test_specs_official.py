@@ -975,7 +975,8 @@ def test_r5_actlr_matches_ddi0460d_table_4_25():
     （FRCDIS=fetch-rate control、DNCH=AXI master 對 non-cacheable 的 data
     forwarding、FDSnS=MPU 關閉時強制 Non-shared、sMOV=divide 不亂序完成）；
     明文 reset 回填；[18] 僅 SBZ 不得 RES0/reset 0；[27:25]/[2:0] reset
-    維持接腳依賴（PARECCENRAMm/ERRENRAMm）。"""
+    維持接腳依賴，且（FINAL-02）逐欄鎖 exact pin mapping——B1/B0/ATCM 依序
+    對應 PARECCENRAMm・ERRENRAMm 的 [2]/[1]/[0]，禁匯流排式 [2:0] 籠統寫法。"""
     reg = _regs(_spec("arm/cortex_r5.md"))["ACTLR"]
     f = {x.name: x for x in reg.fields}
     assert "fetch-rate" in f["FRCDIS"].desc and "Fault" not in f["FRCDIS"].desc.split("——")[0]
@@ -992,17 +993,27 @@ def test_r5_actlr_matches_ddi0460d_table_4_25():
     assert r18.name == "RESERVED" and r18.reset is None and "SBZ" in r18.desc
     for n in ("B1TCMPCEN", "B0TCMPCEN", "ATCMPCEN"):
         assert f[n].reset is None and "ECC 檢查" in f[n].desc, n
-    assert "PARECCENRAMm" in f["ATCMPCEN"].desc
     for n in ("B1TCMECEN", "B0TCMECEN", "ATCMECEN"):
         assert f[n].reset is None, n
-    assert "ERRENRAMm" in f["ATCMECEN"].desc
+    for n, pin in {
+        "B1TCMPCEN": "PARECCENRAMm[2]",
+        "B0TCMPCEN": "PARECCENRAMm[1]",
+        "ATCMPCEN": "PARECCENRAMm[0]",
+        "B1TCMECEN": "ERRENRAMm[2]",
+        "B0TCMECEN": "ERRENRAMm[1]",
+        "ATCMECEN": "ERRENRAMm[0]",
+    }.items():
+        assert pin in f[n].desc, n
+        assert "[2:0]" not in f[n].desc, n
 
 
 def test_r5_adfsr_aifsr_match_ddi0460d_tables_4_31_4_32():
     """R13-04 鎖定（審查轉錄）：ADFSR/AIFSR 三段保留位是 SBZ（RESERVED/
     reset -），不得 RES0/reset 0；CacheWay/Index 有效性條件明文（僅 data
     cache store 同位/ECC）；AIFSR.Index=SBZ；SideExt:Side 八組組合表；
-    整顆內容僅 parity/ECC fault 時有效。"""
+    整顆內容僅 parity/ECC fault 時有效。FINAL-01 補鎖：AIFSR.CacheWay 必須
+    明寫 Unpredictable（指令側不存在 data cache store 情境），且摘要不得
+    再把 cache way 列為可用定位資訊。"""
     regs = _regs(_spec("arm/cortex_r5.md"))
     for rn in ("ADFSR", "AIFSR"):
         reg = regs[rn]
@@ -1023,6 +1034,9 @@ def test_r5_adfsr_aifsr_match_ddi0460d_tables_4_31_4_32():
     assert "data cache store" in adf["Index"].desc
     aif = {x.name: x for x in regs["AIFSR"].fields}
     assert "SBZ" in aif["Index"].desc
+    assert "Unpredictable" in aif["CacheWay"].desc
+    assert "cache way、" not in regs["AIFSR"].desc
+    assert "CacheWay 在 AIFSR 上為 Unpredictable" in regs["AIFSR"].desc
 
 
 def test_r5_tcm_region_registers_match_ddi0460d_tables_4_43_4_44():
