@@ -126,6 +126,10 @@
 | Python 實際輸出的內嵌 JS 語法正確 | ::test_js_syntax_with_node（node --check） | head＋body 兩段 script |
 | 保留位降噪：與 Reset 相同的保留／未定義列預設隱藏；**值≠Reset 或未定義非 0 的保留位強制顯示**（**設計如此**：安全網，不准藏掉異常）；隱藏數提示列可點擊展開；bit ruler 永遠顯示全部位元；**Spec 全文不套用隱藏**（稽核要完整，**設計如此**） | tools/preview.py 截圖＋第 11 節人工清單 | 展開 SCTLR 目視（14 個安靜保留位收起、藍色異常位保留） |
 | 渲染共用（防改 A 壞 B）：暫存器展開與快速反查共用 registerBlock()；狀態 chip 共用 statusChipHtml()（**設計如此**：同一資訊只准一份渲染程式，見 CLAUDE.md 不變條件 12） | 程式結構＋test_every_inline_handler_…（改名即紅） | — |
+| **bit ruler 點擊在兩條路徑都要動**：暫存器頁（ri=數字）與快速反查頁（ri='lk' 字串）點欄位都必須捲動＋閃爍對應列——產生的 onclick 參數必加引號（字串 ri 少引號＝ReferenceError，點擊整組沉默失效；2026-09-02 review 實測抓到） | test_ui_interactions.py::test_bit_ruler_click_focuses_field_on_both_pages（Chromium 實點＋pageerror 必須為零） | 數字／字串 ri 兩路徑實點 |
+| 搜尋輸入：S.q 逐鍵即時更新（不丟字），整頁重繪合併到停止輸入後 120ms（**設計如此**：大 spec＋全部展開時逐鍵重繪會卡輸入） | test_ui_interactions.py::test_search_filters_after_debounce（實際打字→過濾端到端） | 打字＋等待＞120ms→結果過濾且目標可見 |
+| 長文降噪（**設計如此**：資訊不刪除、預設收斂）：收合列的暫存器說明夾 2 行（展開該列即還原全文）；總覽 Source、Spec 卡查核狀態、Spec 全文查核狀態／來源夾 3 行、點擊展開收合。Spec 全文的**欄位表**不受任何夾行影響（稽核完整性） | test_ui.py::test_long_prose_is_clamped_with_expand_toggle（4 個 clamp 位置計數）＋test_ui_interactions.py::test_clamped_prose_expands_on_click（實點展開/收合）＋tools/preview.py 截圖 | 4 個 clamp 位置＋點擊兩態 |
+| tools/preview.py 的 `--out` 接受相對路徑（先 resolve 再 as_uri，否則截圖階段炸 ValueError） | test_ui.py::test_preview_tool_accepts_relative_out_dir | 相對路徑輸出落點＋訊息為絕對路徑 |
 | 真實瀏覽器渲染（五視圖×深淺色、console error 即失敗） | `PYTHONPATH=. python tools/preview.py`（改 UI 後必跑；產 11 張截圖） | overview/regs(展開)/lookup/hex/specs/specdoc(解析後+原文)×兩主題 |
 
 ## 9. 打包與啟動診斷（單元測試看不到的死角）

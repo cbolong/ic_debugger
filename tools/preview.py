@@ -67,7 +67,8 @@ def main() -> int:
     ap.add_argument("--out", default=str(ROOT / "preview_out"))
     ap.add_argument("--html-only", action="store_true", help="只產 HTML 不截圖")
     args = ap.parse_args()
-    out = Path(args.out)
+    # resolve：--out 給相對路徑時，後面截圖的 as_uri() 需要絕對路徑才不會炸
+    out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
 
     html_path = out / "preview.html"

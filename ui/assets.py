@@ -381,6 +381,16 @@ tr.detail-row > td { background: var(--c-bg-softer); padding: 14px 16px 18px; }
 .enum-inline { width: auto; font-size: 12px; margin-top: 4px; }
 .enum-inline td { padding: 2px 12px 2px 0; border: none; color: var(--c-text-muted); }
 
+/* 長文降噪：資訊不刪、預設收斂 ——
+   收合列的暫存器說明夾 2 行（點列展開暫存器時同步還原全文）；
+   審查歷程累積的長 Source／查核狀態夾 3 行、點擊展開收合。 */
+tr.reg-row:not(.open) .reg-desc {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+          overflow: hidden; cursor: pointer; }
+.clamp3.expanded { display: block; -webkit-line-clamp: none; }
+
 /* 空狀態 */
 .empty {
   text-align: center; padding: 48px 20px; color: var(--c-text-muted);
@@ -585,7 +595,10 @@ function openSpecDoc(id){
   }).catch(apiFail);
 }
 function setDocTab(t){ S.docTab = t; renderView(); }
-function setQuery(q){ S.q = q; renderView(); }
+// 搜尋逐鍵整頁重繪在「大 spec＋全部展開」時會卡：S.q 立即更新（不丟字、
+// 其他重繪路徑拿到的永遠是最新值），重繪本身合併到停止輸入後 120ms
+var _qTimer = null;
+function setQuery(q){ S.q = q; clearTimeout(_qTimer); _qTimer = setTimeout(renderView, 120); }
 function setOnlyDiff(v){ S.onlyDiff = v; renderView(); }
 function toggleReg(name){ S.expanded[name] = !S.expanded[name]; renderView(); }
 function setAll(open){
@@ -700,6 +713,10 @@ function verifyRegChipHtml(r, always){
 }
 
 function toggleHideRes(){ S.hideRes = !S.hideRes; renderView(); }
+// 夾行長文的展開／收合（總覽 Source、Spec 卡與 Spec 全文的查核狀態／來源共用）。
+// 帶 padding 的盒子（Spec 卡查核狀態）把 .clamp3 放在內層，避免第 4 行從
+// padding-bottom 透出殘影 —— 此時點外盒、切換的是內層。
+function toggleClamp(el){ (el.querySelector('.clamp3') || el).classList.toggle('expanded'); }
 
 // ────────────────────────────────────────────────────────────────────
 // 渲染
@@ -792,7 +809,7 @@ function renderOverview(){
   h += '<div class="cards">';
   h += '<div class="card"><div class="card-num" style="font-size:17px; line-height:2.1">' + esc(p.spec.display_name) + '</div>' +
        '<div class="card-label">目前 Spec ・ ' + st.total + ' 個暫存器</div>' +
-       (p.spec.source ? '<div class="card-sub">' + esc(p.spec.source) + '</div>' : '') + '</div>';
+       (p.spec.source ? '<div class="card-sub clamp3" onclick="toggleClamp(this)" title="點擊展開／收合完整來源">' + esc(p.spec.source) + '</div>' : '') + '</div>';
   if (p.bin) {
     h += '<div class="card"><div class="card-num" style="font-size:17px; line-height:2.1">' + esc(p.bin.name) + '</div>' +
          '<div class="card-label">bin 檔 ・ ' + p.bin.size.toLocaleString() + ' bytes</div></div>';
@@ -919,7 +936,7 @@ function bitRuler(r, ri){
     var cls = 'bitgroup' +
       (row.differs === true ? ' diff' : '') +
       ((row.reserved || row.kind === 'undef') && row.differs !== true ? ' res' : '');
-    h += '<div class="' + cls + '" onclick="focusField(' + ri + ',' + fi + ')" title="' +
+    h += '<div class="' + cls + '" onclick="focusField(\'' + ri + '\',' + fi + ')" title="' +
          esc(row.name + ' [' + row.bits + ']' + (row.enum_label ? '：' + row.enum_label : '')) + '">';
     h += '<div class="bitidx"><span>' + row.msb + '</span>' + (row.msb !== row.lsb ? '<span>' + row.lsb + '</span>' : '') + '</div>';
     h += '<div class="bitcells">';
@@ -1017,11 +1034,13 @@ function renderSpecDoc(){
   h += overlaid
     ? '目前已載入 bin，下方同頁疊上<b>目前值</b>（藍色＝與 Reset 不同）。'
     : '載入 bin 後，本頁會同頁疊上目前值（僅目前使用中的 spec）。';
-  if (s.status) h += '<br>查核狀態：<b>' + esc(s.status) + '</b>';
-  if (s.source) h += '<br>來源文件：<b>' + esc(s.source) + '</b>';
-  if (s.path) h += '<br>檔案：<span class="mono">' + esc(s.path) + '</span>';
-  if (s.desc) h += '<br>' + esc(s.desc);
   h += '</div>';
+  // 查核狀態／來源在多輪審查後已是長文：各自夾 3 行、點擊展開
+  //（chip 已把對照比例攤在標頭，這裡收斂的是補充說明，欄位表不受影響）
+  if (s.status) h += '<div class="doc-meta clamp3" onclick="toggleClamp(this)" title="點擊展開／收合完整查核狀態">查核狀態：<b>' + esc(s.status) + '</b></div>';
+  if (s.source) h += '<div class="doc-meta clamp3" onclick="toggleClamp(this)" title="點擊展開／收合完整來源">來源文件：<b>' + esc(s.source) + '</b></div>';
+  if (s.path) h += '<div class="doc-meta">檔案：<span class="mono">' + esc(s.path) + '</span></div>';
+  if (s.desc) h += '<div class="doc-meta">' + esc(s.desc) + '</div>';
   if (s.warnings.length) {
     h += '<details class="spec-warnings"><summary>解析警告（' + s.warnings.length + '）—— 有警告代表下面的內容可能不完整</summary><ul>';
     s.warnings.forEach(function(w){ h += '<li>' + esc(w) + '</li>'; });
@@ -1225,7 +1244,7 @@ function specCard(s, cur){
     if (!isCur) h += '<button class="btn" onclick="chooseSpec(\'' + jsq(s.id) + '\')">使用</button>';
     if (s.origin === 'external') h += '<button class="btn" onclick="removeSpec(\'' + jsq(s.id) + '\')">移除</button>';
     h += '</span></div>';
-    if (s.status) h += '<div class="spec-status">查核狀態：' + esc(s.status) + '</div>';
+    if (s.status) h += '<div class="spec-status" onclick="toggleClamp(this)" title="點擊展開／收合完整查核狀態"><div class="clamp3">查核狀態：' + esc(s.status) + '</div></div>';
     if (s.desc) h += '<div class="reg-desc" style="margin-top:6px">' + esc(s.desc) + '</div>';
     if (s.origin === 'external' && s.path) h += '<div class="spec-card-path">' + esc(s.path) + '</div>';
     if (s.warnings.length) {
