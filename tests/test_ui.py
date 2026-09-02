@@ -8,10 +8,14 @@
 import re
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
 from ui.assets import THEME_ROOT_CSS, build_main_html
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_no_leftover_placeholders():
@@ -172,6 +176,34 @@ def test_unverified_register_says_so_on_audit_page():
     assert "位元定義對照自：" in body
     assert "未對照官方文件" in body
     assert "位元定義尚未對照官方 0/" in body
+
+
+def test_long_prose_is_clamped_with_expand_toggle():
+    """長文降噪（設計如此：資訊不刪除、預設收斂）——收合列說明夾 2 行、
+    審查歷程累積的 Source／查核狀態夾 3 行且點擊可展開。四個 clamp 位置：
+    總覽 Source、Spec 卡查核狀態、Spec 全文查核狀態＋來源。"""
+    html = build_main_html("")
+    assert "tr.reg-row:not(.open) .reg-desc" in html
+    assert ".clamp3" in html and "-webkit-line-clamp: 3" in html
+    assert ".clamp3.expanded" in html
+    body = _scripts(html)[1]
+    assert "function toggleClamp(" in body
+    assert body.count('onclick="toggleClamp(this)"') == 4
+
+
+def test_preview_tool_accepts_relative_out_dir(tmp_path):
+    """tools/preview.py 的 --out 給相對路徑曾在截圖階段炸 as_uri()
+    （relative path can't be expressed as a file URI）——鎖住 resolve() 行為：
+    輸出檔要落在 cwd 底下、印出的路徑必須是絕對路徑。"""
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "preview.py"),
+         "--out", "rel_out", "--html-only"],
+        cwd=tmp_path, capture_output=True, text=True, encoding="utf-8",
+    )
+    assert r.returncode == 0, r.stderr
+    assert (tmp_path / "rel_out" / "preview.html").exists()
+    line = next(l for l in r.stdout.splitlines() if "preview.html" in l)
+    assert Path(line.split("寫出 ", 1)[1]).is_absolute()
 
 
 def test_reset_chip_says_when_verdict_is_partial():
