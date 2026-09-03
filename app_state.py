@@ -7,6 +7,7 @@ pywebview 的 js_api 呼叫來自 worker thread，所有變更都在 Api 層以 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from core.bin_parser import BinFile
 from core.resources import spec_dirs
@@ -64,6 +65,18 @@ class AppState:
         return sid
 
     def add_external(self, path: str) -> Spec:
+        # 同一個檔案重複載入＝就地重新讀取（不產生第二張卡）：下方 cfg 的
+        # 去重本來就表明「同檔只記一次」，specs 集合比照辦理——否則會出現
+        # 兩張卡共用一條 cfg 路徑，移除其一另一張就成孤兒（重開即消失）。
+        # 順帶滿足「改了 .md 再載入一次＝更新」的直覺操作。
+        norm = str(Path(path))
+        for sid, existing in self.specs.items():
+            if existing.origin == "external" and existing.path == norm:
+                spec = load_spec_file(path, origin="external")
+                spec.spec_id = sid
+                self.specs[sid] = spec
+                self.current_id = sid
+                return spec
         spec = load_spec_file(path, origin="external")
         sid = self._unique_id(self.specs, spec.spec_id)
         spec.spec_id = sid

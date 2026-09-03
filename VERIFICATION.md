@@ -88,6 +88,7 @@
 | 已載入 bin 時同頁疊上目前值，且值/differs 與暫存器頁**完全一致**（**設計如此**：兩頁共用 build_payload 單一解碼來源，不允許各算各的） | ::test_spec_detail_with_bin_overlays_values | 範例 bin 全暫存器逐一比對 |
 | **只有「目前使用中的 spec」疊值**（**設計如此**：bin 的 offset 對應跟著 spec 走，套到別份 spec 上值無意義） | test_app_state.py::test_detail_binf_only_for_current_spec | 目前／非目前／無 bin 三態 |
 | 「目前值」與「Reset」在欄位表相鄰並排（**設計如此**：一眼比對不用左右掃） | tools/preview.py 截圖（第 11 節人工清單第 4/6 項） | — |
+| **載入失敗不得死在「載入中」**：get_spec_detail 失敗時頁面常駐顯示原因（toast 會消失）＋重試按鈕，重試成功後正常渲染；spec 集合變動時 docError 隨 doc 快取一起作廢 | test_ui_interactions.py::test_specdoc_error_shows_reason_and_retry_recovers（假 bridge 失敗一次→重試恢復，Chromium 實跑） | 失敗→常駐錯誤→重試→成功全鏈 |
 | 每顆暫存器標示對照狀態：已對照→綠色 chip＋出處全文；未對照→虛線 chip（**設計如此**：未對照不再重複印長句，避免 17 行雜訊） | test_ui.py::test_unverified_register_says_so_on_audit_page＋tools/preview.py 截圖 8 | 兩態 |
 | spec 層級顯示「已對照官方 X/N」比例（Spec 管理卡片與 Spec 全文標頭同一支渲染） | test_ui.py::test_verify_state_rendered_from_single_source＋截圖 4/8 | 全對照／部分／完全未對照三態 |
 
@@ -110,6 +111,7 @@
 |---|---|---|
 | 內建載入、last_spec 記憶、預設選第一個 | test_app_state.py::test_load_builtin_…、_last_spec_restored | — |
 | 外部 spec 加入/移除/重載、內建不可移除、同名衝突加 `~2` 後綴（**設計如此**） | ::test_add_and_remove_external、_external_id_collision_…、_reload_keeps_external | 各狀態轉移 |
+| **同一路徑重複載入＝就地重新讀取**（**設計如此**：不產生第二張卡——cfg 去重本來就表明同檔只記一次；同時滿足「改了 .md 再載入＝更新」）。修正前重加同檔會出現兩張卡共用一條 cfg 路徑，移除其一另一張成孤兒（2026-09-03 實證的狀態不一致） | ::test_readd_same_external_path_reloads_in_place（重加＝同 id、內容更新、移除後零孤兒） | 加→改檔→重加→移除→重載全鏈 |
 
 ## 8. UI（HTML/CSS/JS 靜態保證）
 

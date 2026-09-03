@@ -457,6 +457,7 @@ var S = {
   diag: null,       // 啟動診斷（掃了哪些 spec 目錄、各找到幾份）
   lastError: null,  // 最近一次失敗的原因（空狀態會顯示；toast 會消失，這個不會）
   doc: null,        // Spec 全文檢視的內容（get_spec_detail 的 detail）
+  docError: null,   // Spec 全文載入失敗的原因（toast 會消失，這個常駐在頁面上）
   docTab: 'parsed', // 'parsed'（解析後）| 'raw'（原始 Markdown）
   lk: { q: '', v: '', result: null, note: null, error: null,
         history: [], spec_id: null },  // 快速反查（歷史限本次執行）
@@ -507,7 +508,7 @@ function handle(resp, after){
     return;
   }
   S.lastError = null;
-  if (resp.specs) { S.specs = resp.specs; S.doc = null; }  // spec 集合變動 → 全文快取作廢
+  if (resp.specs) { S.specs = resp.specs; S.doc = null; S.docError = null; }  // spec 集合變動 → 全文快取作廢
   if ('payload' in resp) { S.payload = resp.payload; prepPayload(); }
   // 換了 spec → 反查結果與歷史是舊 spec 解的，全部作廢
   if (S.payload && S.lk.spec_id && S.payload.spec.id !== S.lk.spec_id) {
@@ -586,13 +587,19 @@ function openSpecDoc(id){
     if (d && (!want || d.summary.id === want)) { S.doc = d; S.docTab = 'parsed'; }
     renderAll(); return;
   }
-  S.doc = null; renderAll();  // 先顯示載入中
+  S.doc = null; S.docError = null; renderAll();  // 先顯示載入中
   api('get_spec_detail', id).then(function(r){
     if (!r) return;
-    if (!r.ok) { showToast(r.error || '載入失敗', true); return; }
+    // 失敗不能只靠會消失的 toast：S.doc 恆為 null 會讓畫面死在「載入中」
+    // （2026-09-03 深度 review 以 Chromium 實測重現）——原因寫進 docError
+    // 常駐顯示並給重試入口。
+    if (!r.ok) { S.docError = r.error || '載入失敗'; renderAll(); return; }
     S.doc = r.detail; S.docTab = 'parsed';
     renderAll();
-  }).catch(apiFail);
+  }).catch(function(e){
+    S.docError = '載入失敗：' + e;
+    renderAll();
+  });
 }
 function setDocTab(t){ S.docTab = t; renderView(); }
 // 搜尋逐鍵整頁重繪在「大 spec＋全部展開」時會卡：S.q 立即更新（不丟字、
@@ -1016,6 +1023,11 @@ function meaningCell(f, expandEnums){
 // ── Spec 全文（稽核目前依據的 spec 是否正確）───────────────────────
 function renderSpecDoc(){
   if (!S.doc) {
+    if (S.docError) {
+      return '<div class="empty"><div class="big">📖</div>' +
+             '<p><b>Spec 全文載入失敗</b><br>' + esc(S.docError) + '</p>' +
+             '<button class="btn-accent" onclick="openSpecDoc(null)">重試</button></div>';
+    }
     return '<div class="empty"><div class="big">📖</div><p>載入 Spec 全文中…</p></div>';
   }
   var s = S.doc.summary;
