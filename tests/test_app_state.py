@@ -51,6 +51,37 @@ def test_add_and_remove_external(tmp_path):
     assert st.current_id in st.specs  # 退回其他 spec
 
 
+def test_readd_same_external_path_reloads_in_place(tmp_path):
+    """同一個外部檔重複載入＝就地重新讀取（設計如此：cfg 的去重本來就表明
+    「同檔只記一次」，specs 集合比照——不產生第二張卡，也順帶滿足
+    「改了 .md 想立即更新」的直覺操作）。
+
+    2026-09-03 深度 review 實證的狀態不一致：重加同檔曾產生 my_chip＋my_chip~2
+    兩張卡但 cfg 只記一條路徑，移除其中一張後另一張變孤兒（重開 app 即消失）。"""
+    p = tmp_path / "my_chip.md"
+    p.write_text(EXT_SPEC, encoding="utf-8")
+    st = AppState(cfg=_fresh_cfg())
+    st.load_specs()
+    base = len(st.specs)
+
+    s1 = st.add_external(str(p))
+    # 使用者修改檔案後再載入同一檔
+    p.write_text(EXT_SPEC.replace("測試外部", "測試外部 v2") + "\n## R2\n- Offset: 0x4\n",
+                 encoding="utf-8")
+    s2 = st.add_external(str(p))
+
+    assert s2.spec_id == s1.spec_id, "不得產生第二張卡"
+    assert len(st.specs) == base + 1
+    assert st.current_id == s1.spec_id
+    assert s2.cpu == "測試外部 v2" and len(s2.registers) == 2, "必須就地重新讀取檔案內容"
+    assert st.cfg["external_specs"].count(str(p)) == 1
+
+    # 移除後不得留孤兒：cfg 與畫面狀態一致，重新載入後外部 spec 歸零
+    assert st.remove_external(s1.spec_id)
+    st.load_specs()
+    assert not [s for s in st.specs.values() if s.origin == "external"]
+
+
 def test_external_id_collision_gets_suffix(tmp_path):
     p = tmp_path / "cortex_r5.md"  # 與內建同名
     p.write_text(EXT_SPEC, encoding="utf-8")

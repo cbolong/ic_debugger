@@ -88,6 +88,72 @@ def test_search_filters_after_debounce(preview_uri):
     assert not errors, f"JS 錯誤：{errors}"
 
 
+_MINI_SPEC = {
+    "id": "c", "cpu": "C", "version": "", "display_name": "C", "width": 32,
+    "source": "", "status": "", "vendor": "arm", "desc": "", "origin": "builtin",
+    "path": "", "register_count": 1, "verified_count": 0, "warnings": [],
+}
+_MINI_REG = {
+    "name": "R", "offset": 0, "offset_hex": "0x000", "size": 32, "desc": "",
+    "verified": "", "covered": False, "partial": False, "value_hex": None,
+    "value_bits": None, "reset_hex": None, "differs": None, "reset_partial": False,
+    "nonzero_undef": False, "rows": [],
+}
+
+
+def _fail_once_bridge() -> str:
+    """假 bridge：get_spec_detail 第一次回 ok:false，之後成功——
+    重演「Spec 全文載入失敗」再驗證重試可恢復。"""
+    import json
+    init = {"ok": True,
+            "diag": {"version": "t", "frozen": False, "spec_count": 1, "scan": [], "log_path": "x"},
+            "specs": [_MINI_SPEC],
+            "payload": {"spec": _MINI_SPEC, "bin": None, "hexdump": None,
+                        "registers": [_MINI_REG],
+                        "stats": {"total": 1, "covered": 0, "not_covered": 1, "differs": 0,
+                                  "spec_span_bytes": 4, "bin_size": None}}}
+    detail = {"ok": True, "detail": {"summary": _MINI_SPEC, "registers": [_MINI_REG],
+                                     "raw": "# CPU: C", "raw_error": None}}
+    return f"""
+var _detailCalls = 0;
+window.pywebview = {{ api: {{
+  get_init: function() {{ return Promise.resolve({json.dumps(init)}); }},
+  get_spec_detail: function() {{
+    _detailCalls++;
+    if (_detailCalls === 1) return Promise.resolve({{ok: false, error: "故意失敗"}});
+    return Promise.resolve({json.dumps(detail)});
+  }},
+  set_theme: function() {{ return Promise.resolve({{ok: true}}); }},
+  log_js_error: function() {{ return Promise.resolve({{ok: true}}); }}
+}} }};
+window.dispatchEvent(new Event('pywebviewready'));
+"""
+
+
+def test_specdoc_error_shows_reason_and_retry_recovers(tmp_path):
+    """Spec 全文載入失敗不得死在「載入中」（2026-09-03 深度 review 實測重現）：
+    畫面必須常駐顯示原因＋重試按鈕，且按重試成功後正常渲染。"""
+    playwright = pytest.importorskip("playwright.sync_api")
+    from ui.assets import build_main_html
+    html = build_main_html("").replace("</head>", f"<script>{_fail_once_bridge()}</script></head>")
+    f = tmp_path / "specdoc_err.html"
+    f.write_text(html, encoding="utf-8")
+    with playwright.sync_playwright() as p:
+        browser = _launch(p)
+        page = browser.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(f.as_uri())
+        page.wait_for_selector("#specSelect option", state="attached")
+        page.click('[data-view="specdoc"]')
+        page.wait_for_selector("text=Spec 全文載入失敗", timeout=3000)
+        assert "故意失敗" in page.inner_text("#view")
+        page.click("text=重試")
+        page.wait_for_selector(".doc-reg-head", timeout=3000)  # 成功渲染
+        browser.close()
+    assert not errors, f"JS 錯誤：{errors}"
+
+
 def test_clamped_prose_expands_on_click(preview_uri):
     """長文夾行（clamp3）點擊必須展開、再點收合——資訊不刪除、預設收斂。"""
     playwright = pytest.importorskip("playwright.sync_api")
